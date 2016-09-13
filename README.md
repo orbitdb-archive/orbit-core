@@ -76,6 +76,7 @@ npm run build
 ```
 
 Library (ES5 for Node.js) will be located in `lib/`.
+
 Distributable (ES5 minified for browsers) will be located in `dist/`.
 
 ### Run Test
