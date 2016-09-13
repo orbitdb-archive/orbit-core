@@ -32,11 +32,11 @@
     "webpack": "^2.1.0-beta.7"
   },
   "scripts": {
-    "test": "./node_modules/.bin/mocha",
-    "build": "npm test && npm run build:lib && npm run build:dist",
-    "build:lib": "./node_modules/.bin/webpack --config webpack.lib.config.js",
-    "build:dist": "./node_modules/.bin/webpack --config webpack.dist.config.js",
-    "postinstall": "./scripts/clean.sh"
+    "test": "npm run build:lib && ./node_modules/.bin/mocha",
+    "build": "npm run build:lib && npm run build:dist",
+    "build:lib": "rm -rf lib/ && ./node_modules/.bin/webpack --config webpack.lib.config.js",
+    "build:dist": "rm -rf dist/ && ./node_modules/.bin/webpack --config webpack.dist.config.js",
+    "postinstall": "./scripts/clean_install.sh"
   },
   "repository": {
     "type": "git",

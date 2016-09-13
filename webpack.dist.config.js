@@ -32,7 +32,10 @@ module.exports = {
   plugins: [
     new webpack.optimize.AggressiveMergingPlugin(),
     new webpack.optimize.UglifyJsPlugin({
-      mangle: true
+      mangle: false,
+      compress: {
+        warnings: false
+      }
     }),
     new webpack.NoErrorsPlugin()
   ],

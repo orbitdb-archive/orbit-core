@@ -14,17 +14,13 @@ const babel = {
 module.exports = {
   entry: './src/Orbit.js',
   output: {
-    libraryTarget: 'var',
+    path: __dirname + "/lib",
+    libraryTarget: 'commonjs2',
     library: 'Orbit',
-    filename: './lib/orbit.js'
+    filename: 'orbit.js'
   },
+  target: 'node',
   debug: false,
-  devtool: false,
-  node: {
-    console: false,
-    process: 'mock',
-    Buffer: 'buffer'
-  },
   stats: {
     colors: true,
     reasons: false
@@ -41,8 +37,7 @@ module.exports = {
       path.join(__dirname, 'node_modules')
     ],
     alias: {
-      'node_modules': path.join(__dirname + '/node_modules'),
-      'fs': path.join(__dirname + '/node_modules', 'html5-fs')
+      'node_modules': path.join(__dirname + '/node_modules')
     }
   },
   module: {
@@ -60,13 +55,5 @@ module.exports = {
       test: /\.json$/,
       loader: 'json'
     }]
-  },
-  externals: {
-    du: '{}',
-    net: '{}',
-    tls: '{}',
-    console: '{}',
-    'require-dir': '{}',
-    mkdirp: '{}'
   }
 }
