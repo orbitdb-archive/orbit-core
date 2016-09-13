@@ -1,8 +1,8 @@
-# orbit-core
+# orbit-core-uport
 
 >  Communication protocol on IPFS
 
-**This is Orbit.**
+**WIP module for Orbit with uPort + IPFS pubsub**
 
 Use for:
 - Chat applications
@@ -13,7 +13,7 @@ Use for:
 
 ### Install
 ```
-npm install orbit-core
+npm install orbit-core-uport
 ```
 
 ### Example
@@ -26,7 +26,7 @@ See [examples/bot.js]() for a more detailed example.
 'use strict'
 
 const IpfsApi = require('ipfs-api')
-const Orbit = require('../src/Orbit')
+const Orbit = require('orbit-core-uport')
 
 const ipfs = IpfsApi()
 const orbit = new Orbit(ipfs)
