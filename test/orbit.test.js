@@ -5,10 +5,12 @@ const fs           = require('fs')
 const path         = require('path')
 const assert       = require('assert')
 const Promise      = require('bluebird')
+const ipfsd        = require('ipfsd-ctl')
+// const IPFS         = require('ipfs')
 const IpfsApi      = require('ipfs-api')
 const EventStore   = require('orbit-db-eventstore')
 const Post         = require('ipfs-post')
-const Orbit        = require('../lib/orbit')
+const Orbit        = require('../src/Orbit')
 
 // Init storage for saving test keys
 const keystorePath = path.join(process.cwd(), '/test/keys')
@@ -56,10 +58,10 @@ const IpfsApis = [
   name: 'js-ipfs-api',
   start: () => {
     return new Promise((resolve, reject) => {
-      // ipfsd.disposableApi((err, ipfs) => {
-      //   if(err) reject(err)
-      //   resolve(ipfs)
-      // })
+      ipfsd.disposableApi((err, ipfs) => {
+        if(err) reject(err)
+        resolve(ipfs)
+      })
       // ipfsd.local((err, node) => {
       //   if(err) reject(err)
       //   ipfsDaemon = node
@@ -86,8 +88,13 @@ IpfsApis.forEach(function(ipfsApi) {
     let channel = 'orbit-tests'
 
     before(function (done) {
-      ipfs = IpfsApi()
-      done()
+      // ipfs = IpfsApi()
+      ipfsApi.start()
+        .then((res) => {
+          ipfs = res
+          done()
+        })
+        .catch(done)
     })
 
     beforeEach(function (done) {
@@ -199,9 +206,9 @@ IpfsApis.forEach(function(ipfsApi) {
           .catch(done)
       })
 
-      afterEach(() => {
-        orbit.disconnect()
-      })
+      // afterEach(() => {
+      //   orbit.disconnect()
+      // })
 
       it('joins a new channel', () => {
         return orbit.join(channel).then((result) => {
@@ -650,8 +657,7 @@ IpfsApis.forEach(function(ipfsApi) {
           .then(() => orbit.addFile(channel, file))
           .then((res) => {
             assert.notEqual(res.Post, null)
-            console.log(res)
-            // assert.equal(res.Post instanceof Post.Types.File, true)
+            assert.equal(res.Post instanceof Post.Types.File, true)
             assert.equal(res.Hash.startsWith('Qm'), true)
             assert.equal(res.Post.name, filename)
             assert.equal(res.Post.size, -1)
@@ -674,9 +680,9 @@ IpfsApis.forEach(function(ipfsApi) {
             .then(() => orbit.addFile(channel, dir))
             .then((res) => {
               assert.notEqual(res.Post, null)
-              // assert.equal(res.Post instanceof Post.Types.Directory, true)
+              assert.equal(res.Post instanceof Post.Types.Directory, true)
               assert.equal(res.Hash.startsWith('Qm'), true)
-              assert.equal(res.Post.name, directory.split("/").pop())
+              assert.equal(res.Post.name, directory.split('/').pop())
               // assert.equal(res.Post.size === 409363 || res.Post.size === 409449, true)
               assert.equal(Object.keys(res.Post.meta).length, 4)
               // assert.equal(res.Post.meta.size === 409363 || res.Post.meta.size === 409449, true)
@@ -772,7 +778,7 @@ IpfsApis.forEach(function(ipfsApi) {
 
     describe('getDirectory', function() {
       if (ipfsApi.name !== 'js-ipfs') {
-        const directory = 'src'
+        const directory = 'test/'
         const filePath = path.join(process.cwd(), directory)
         let hash
 
@@ -793,7 +799,7 @@ IpfsApis.forEach(function(ipfsApi) {
           orbit.getDirectory(hash)
             .then((res) => {
               assert.notEqual(res, null)
-              assert.equal(res.length, 7)
+              assert.equal(res.length, 3)
               assert.equal(Object.keys(res[0]).length, 4)
               done()
             })
@@ -829,4 +835,3 @@ IpfsApis.forEach(function(ipfsApi) {
   })
 
 })
-0

@@ -2,7 +2,7 @@
 
 >  Communication protocol on IPFS
 
-**WIP module for Orbit with uPort + IPFS pubsub**
+**WIP module for Orbit**
 
 Use for:
 - Chat applications
@@ -13,7 +13,7 @@ Use for:
 
 ### Install
 ```
-npm install orbit-core-uport
+npm install orbit-core
 ```
 
 ### Example

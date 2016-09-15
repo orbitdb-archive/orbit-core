@@ -6,7 +6,6 @@ const OrbitDB      = require('orbit-db')
 const Crypto       = require('orbit-crypto')
 const Post         = require('ipfs-post')
 const Logger       = require('logplease')
-const bs58         = require('bs58')
 const OrbitUser    = require('./orbit-user')
 const IdentityProviders = require('./identity-providers')
 
@@ -193,7 +192,7 @@ class Orbit {
       return ipfs.files.add(new Buffer(data))
         .then((result) => {
           return {
-            Hash: bs58.encode(result[0].node.multihash()).toString(),
+            Hash: result[0].toJSON().Hash,
             isDirectory: false
           }
         })
@@ -293,13 +292,6 @@ class Orbit {
   }
 
   // TODO: tests for everything below
-  _handleError(e) {
-    logger.error(e)
-    logger.error("Stack trace:\n", e.stack)
-    this.events.emit('error', e.message)
-    throw e
-  }
-
   _handleMessage(channel, message) {
     logger.debug("New message in #", channel, "\n" + JSON.stringify(message, null, 2))
     if(this._channels[channel])
@@ -309,7 +301,7 @@ class Orbit {
   _startPollingForPeers() {
     this._pollPeersTimer = setInterval(() => {
       this._updateSwarmPeers().then((peers) => {
-        this._peers = peers
+        this._peers = peers || []
         // TODO: get unique (new) peers and emit 'peer' for each instead of all at once
         this.events.emit('peers', this._peers)
       })
@@ -341,4 +333,3 @@ class Orbit {
 }
 
 module.exports = Orbit
-0
