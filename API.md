@@ -1,20 +1,34 @@
 # Orbit API Documentation
+### Constructor
+
 #### new Orbit(ipfs, options = {})
 Create an instance of Orbit.
 
-`ipfs` - An IPFS instance. Either `js-ipfs` or `js-ipfs-api`.
+`ipfs` - An IPFS instance. Either [`js-ipfs`](https://github.com/ipfs/js-ipfs) or [`js-ipfs-api`](https://github.com/ipfs/js-ipfs-api).
 
 `options` - Default options are:
-```
+``` 
 {
   keystorePath: <path>, // path where to keep keys
-  cacheFile: <file>, // path to orbit-db cache file
-  maxHistory: 64 // how many messages to retrieve from history on joining a channel
+  cacheFile: <file>,    // path to orbit-db cache file
+  maxHistory: 64        // how many messages to retrieve from history on joining a channel
 }
 ```
 
+**Usage**
+
+```javascript
+const Orbit = require('orbit-core')
+const ipfs = require('ipfs-api')() // default: 'localhost:5001'
+const orbit = new Orbit(ipfs)
+```
+
+### Properties
+
 #### user
 Returns the current user.
+
+**Usage**
 
 ```javascript
 const user = orbit.user
@@ -23,6 +37,8 @@ console.log(user.name, user.id)
 
 #### network
 Returns the network info.
+
+**Usage**
 
 ```javascript
 const network = orbit.network
@@ -35,10 +51,14 @@ Returns the channels the user is currently joined on.
 #### peers
 Returns a list of IPFS swarm peers.
 
+### Methods
+
 #### connect(username)
 Connect to a network as `username`.
 
 TODO: return value, thrown errors, example
+
+**Usage**
 
 ```javascript
 orbit.events.on('connected', (network) => {
@@ -53,14 +73,18 @@ Disconnect from the currently connected network.
 
 TODO: return value, thrown errors, example
 
+**Usage**
+
 ```javascript
 orbit.disconnect()
 ```
 
 #### join(channel)
-Join a `channel`.
+Join a `channel`. Upon successfully joining a channel, `events` will emit `'joined'` event.
 
-TODO: return value, thrown errors, example
+Returns `true` if joined a channel, `false` if orbit is already joined on the `channel`.
+
+**Usage**
 
 ```javascript
 orbit.events.on('joined', (channel) => console.log(`Joined #${channel}`))
