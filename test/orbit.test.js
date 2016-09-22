@@ -8,6 +8,7 @@ const Promise      = require('bluebird')
 const ipfsd        = require('ipfsd-ctl')
 // const IPFS         = require('ipfs')
 const IpfsApi      = require('ipfs-api')
+// const OrbitServer  = require('orbit-server/src/server')
 const EventStore   = require('orbit-db-eventstore')
 const Post         = require('ipfs-post')
 const Orbit        = require('../src/Orbit')
@@ -672,7 +673,7 @@ IpfsApis.forEach(function(ipfsApi) {
 
       it('adds a directory recursively', (done) => {
         if (ipfsApi.name !== 'js-ipfs') {
-          const directory = 'test/keys'
+          const directory = 'test'
           const p = path.join(process.cwd(), directory)
           const dir = { filename: directory, directory: p }
 
@@ -682,10 +683,8 @@ IpfsApis.forEach(function(ipfsApi) {
               assert.notEqual(res.Post, null)
               assert.equal(res.Post instanceof Post.Types.Directory, true)
               assert.equal(res.Hash.startsWith('Qm'), true)
-              assert.equal(res.Post.name, directory.split('/').pop())
-              // assert.equal(res.Post.size === 409363 || res.Post.size === 409449, true)
+              assert.equal(res.Post.name, directory)
               assert.equal(Object.keys(res.Post.meta).length, 4)
-              // assert.equal(res.Post.meta.size === 409363 || res.Post.meta.size === 409449, true)
               assert.equal(res.Post.meta.from, userId)
               assert.notEqual(res.Post.meta.ts, null)
               done()
@@ -778,7 +777,7 @@ IpfsApis.forEach(function(ipfsApi) {
 
     describe('getDirectory', function() {
       if (ipfsApi.name !== 'js-ipfs') {
-        const directory = 'test/'
+        const directory = 'test'
         const filePath = path.join(process.cwd(), directory)
         let hash
 

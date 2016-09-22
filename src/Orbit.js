@@ -6,6 +6,7 @@ const OrbitDB      = require('orbit-db')
 const Crypto       = require('orbit-crypto')
 const Post         = require('ipfs-post')
 const Logger       = require('logplease')
+const LRU          = require('lru')
 const OrbitUser    = require('./orbit-user')
 const IdentityProviders = require('./identity-providers')
 
@@ -32,6 +33,7 @@ class Orbit {
     this._peers = []
     this._pollPeersTimer = null
     this._options = Object.assign({}, defaultOptions)
+    this._cache = new LRU(1000)
     Object.assign(this._options, options)
     Crypto.useKeyStore(this._options.keystorePath)
   }
@@ -79,6 +81,7 @@ class Orbit {
         this.events.emit('connected', this.network, this.user)
         return this
       })
+      .catch((e) => console.error(e))
   }
 
   disconnect() {
@@ -156,20 +159,29 @@ class Orbit {
   }
 
   getPost(hash) {
-    let post, signKey
-    return this._ipfs.object.get(hash, { enc: 'base58' })
-      .then((res) => post = JSON.parse(res.toJSON().Data))
-      .then(() => Crypto.importKeyFromIpfs(this._ipfs, post.signKey))
-      .then((signKey) => Crypto.verify(
-        post.sig,
-        signKey,
-        new Buffer(JSON.stringify({
-          content: post.content,
-          meta: post.meta,
-          replyto: post.replyto
-        })))
-       )
-      .then(() => post)
+    const post = this._cache.get(hash)
+
+    if (post) {
+      Promise.resolve(post)
+    } else {
+      let post, signKey
+      return this._ipfs.object.get(hash, { enc: 'base58' })
+        .then((res) => post = JSON.parse(res.toJSON().Data))
+        .then(() => Crypto.importKeyFromIpfs(this._ipfs, post.signKey))
+        .then((signKey) => Crypto.verify(
+          post.sig,
+          signKey,
+          new Buffer(JSON.stringify({
+            content: post.content,
+            meta: post.meta,
+            replyto: post.replyto
+          })))
+         )
+        .then(() => {
+          this._cache.set(hash, post)
+          return post
+        })
+    }
   }
 
   /*
@@ -206,7 +218,6 @@ class Orbit {
           const isDirectory = result[0].path.split('/').pop() !== filename
           return {
             Hash: isDirectory ? result[result.length - 1].hash : result[0].hash,
-            // Hash: isDirectory ? result[result.length - 1].Hash : result[0].Hash,
             isDirectory: isDirectory
           }
         })
@@ -254,20 +265,26 @@ class Orbit {
   }
 
   getUser(hash) {
-    return this._ipfs.object.get(hash, { enc: 'base58' })
-      .then((res) => {
-        const profileData = Object.assign(JSON.parse(res.toJSON().Data))
-        Object.assign(profileData, { id: hash })
-        return IdentityProviders.loadProfile(this._ipfs, profileData)
-          .then((profile) => {
-            Object.assign(profile || profileData, { id: hash })
-            return profile
-          })
-          .catch((e) => {
-            logger.error(e)
-            return profileData
-          })
-      })
+    const user = this._cache.get(hash)
+    if (user) {
+      return Promise.resolve(user)
+    } else {
+      return this._ipfs.object.get(hash, { enc: 'base58' })
+        .then((res) => {
+          const profileData = Object.assign(JSON.parse(res.toJSON().Data))
+          Object.assign(profileData, { id: hash })
+          return IdentityProviders.loadProfile(this._ipfs, profileData)
+            .then((profile) => {
+              Object.assign(profile || profileData, { id: hash })
+              this._cache.set(hash, profile)
+              return profile
+            })
+            .catch((e) => {
+              logger.error(e)
+              return profileData
+            })
+        })
+    }
   }
 
   /* Private methods */
@@ -299,13 +316,15 @@ class Orbit {
   }
 
   _startPollingForPeers() {
-    this._pollPeersTimer = setInterval(() => {
-      this._updateSwarmPeers().then((peers) => {
-        this._peers = peers || []
-        // TODO: get unique (new) peers and emit 'peer' for each instead of all at once
-        this.events.emit('peers', this._peers)
-      })
-    }, 1000)
+    if(!this._pollPeersTimer) {
+      this._pollPeersTimer = setInterval(() => {
+        this._updateSwarmPeers().then((peers) => {
+          this._peers = peers || []
+          // TODO: get unique (new) peers and emit 'peer' for each instead of all at once
+          this.events.emit('peers', this._peers)
+        })
+      }, 3000)
+    }
   }
 
   _updateSwarmPeers() {
@@ -326,7 +345,7 @@ class Orbit {
           resolve(res)
         })
       })
-      .then((peers) => peers.Strings)
+      .then((peers) => peers.map((e) => e.toString()))
     }
   }
 

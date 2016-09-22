@@ -13,7 +13,7 @@ Use for:
 
 ### Install
 ```
-npm install orbit-core
+npm install orbit_
 ```
 
 ### Example
@@ -26,7 +26,7 @@ See [examples/bot.js]() for a more detailed example.
 'use strict'
 
 const IpfsApi = require('ipfs-api')
-const Orbit = require('orbit-core-uport')
+const Orbit = require('orbit_')
 
 const ipfs = IpfsApi()
 const orbit = new Orbit(ipfs)

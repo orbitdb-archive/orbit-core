@@ -1,14 +1,15 @@
 {
-  "name": "orbit-core",
+  "name": "orbit_",
   "version": "0.0.1",
   "description": "Orbit - Communication System on IPFS",
   "main": "lib/orbit.js",
   "dependencies": {
     "ipfs-api": "https://github.com/haadcode/js-ipfs-api.git",
-    "ipfs-post": "^0.0.12",
+    "ipfs-post": "^0.0.15",
     "logplease": "^1.2.7",
-    "orbit-crypto": "0.0.7",
-    "orbit-db": "https://github.com/haadcode/orbit-db.git#feat\/ipfs-pubsub"
+    "lru": "^3.1.0",
+    "orbit-crypto": "0.0.9",
+    "orbit-db": "https://github.com/haadcode/orbit-db.git#feat/ipfs-pubsub"
   },
   "devDependencies": {
     "babel-core": "^6.14.0",
