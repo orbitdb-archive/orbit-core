@@ -1,9 +1,12 @@
 'use strict'
 
-const ipfsd = require('ipfsd-ctl')
+const ipfsDaemon = require('./ipfs-gimme-daemon')
 const Orbit = require('../src/Orbit')
+const quotes = require('./quotes.js')
 
 /*
+  A simple Orbit bot that listens on a channel.
+
   Usage:
   node index.js <botname> <channel>
 
@@ -12,7 +15,7 @@ const Orbit = require('../src/Orbit')
 */
 
 // Options
-let user = process.argv[2] || 'anonymous' + new Date().getTime().toString().split('').splice(-4, 4).join('')
+let user = process.argv[2] || 'QuoteBot'
 let channel = process.argv[3] || 'ipfs'
 
 // State
@@ -25,16 +28,12 @@ function formatTimestamp(timestamp) {
 }
 
 // MAIN
+const ipfsDataDir = '/tmp/' + user
 
 // Start an IPFS daemon
-ipfsd.local((err, ipfsDaemon) => {
-  if(err) {
-    console.error(err)
-    process.exit(1)
-  }
-
-  ipfsDaemon.startDaemon((err, ipfs) => {
-    orbit = new Orbit(ipfs)
+ipfsDaemon({ dataDir: ipfsDataDir })
+  .then((ipfs) => {
+    orbit = new Orbit(ipfs, { maxHistory: 0 })
 
     orbit.events.on('connected', (network) => {
       console.log(`-!- Connected to ${network.name}`)
@@ -44,18 +43,21 @@ ipfsd.local((err, ipfsDaemon) => {
     orbit.events.on('joined', (channel) => {
       orbit.send(channel, "/me is now caching this channel")
       console.log(`-!- Joined #${channel}`)
+
+      let index = 0
+      setInterval(() => {
+        const quote = "'" + quotes[index][0] + "' -- " + quotes[index][1]
+        orbit.send(channel, quote)
+        index = index >= quotes.length - 1 ? 0 : index + 1
+      }, 2000)
     })
 
     // Listen for new messages
     orbit.events.on('message', (channel, message) => {
       // Get the actual content of the message
-      orbit.getPost(message.payload.value)
+      orbit.getPost(message.payload.value, true) // true == include user profile in the post
         .then((post) => {
-          // Get the user info
-          orbit.getUser(post.meta.from)
-            .then((user) => {
-              console.log(`${formatTimestamp(post.meta.ts)} < ${user.name}> ${post.content}`)
-            })
+          console.log(`${formatTimestamp(post.meta.ts)} < ${post.meta.from.name}> ${post.content}`)
         })
     })
 
@@ -63,4 +65,7 @@ ipfsd.local((err, ipfsDaemon) => {
     orbit.connect(user)
       .catch((e) => logger.error(e))
   })
-})
+  .catch((e) => {
+    console.log(e)
+    process.exit(1)
+  })
