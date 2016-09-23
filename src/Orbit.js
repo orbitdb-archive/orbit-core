@@ -105,6 +105,7 @@ class Orbit {
     if(this._channels[channel])
       return Promise.resolve(false)
 
+    // console.log(this._user)
     const dbOptions = {
       cacheFile: '/' + this.user.id + this._options.cacheFile,
       maxHistory: this._options.maxHistory
@@ -158,7 +159,7 @@ class Orbit {
       .then((feed) => feed.iterator(options).collect())
   }
 
-  getPost(hash) {
+  getPost(hash, withUserProfile) {
     const post = this._cache.get(hash)
 
     if (post) {
@@ -179,6 +180,14 @@ class Orbit {
          )
         .then(() => {
           this._cache.set(hash, post)
+
+          if (withUserProfile)
+            return this.getUser(post.meta.from)
+              .then((user) => {
+                post.meta.from = user
+                return post
+              })
+
           return post
         })
     }
