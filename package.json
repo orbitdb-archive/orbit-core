@@ -1,6 +1,6 @@
 {
   "name": "orbit_",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Orbit - Communication System on IPFS",
   "main": "lib/orbit.js",
   "dependencies": {
