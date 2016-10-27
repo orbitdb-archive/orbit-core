@@ -66,6 +66,10 @@ class Orbit {
       credentials = { provider: 'orbit', username: credentials }
     }
 
+    // A hack to force peers to connect
+    this._ipfs.object.put(new Buffer(JSON.stringify({ app: 'orbit.chat' })))
+      .then((res) => this._ipfs.object.get(res.toJSON().Hash, { enc: 'base58' }))
+
     return IdentityProviders.authorizeUser(this._ipfs, credentials)
       .then((user) => this._user = user)
       .then(() => new OrbitDB(this._ipfs, this._user.id))
