@@ -19,7 +19,7 @@
     "bluebird": "^3.4.6",
     "fs-pull-blob-store": "^0.4.1",
     "html5-fs": "git+https://github.com/haadcode/html5-fs.git",
-    "ipfs-test-apis": "^0.0.3",
+    "ipfs-test-apis": "^0.0.4",
     "json-loader": "^0.5.4",
     "mocha": "^2.5.3",
     "webpack": "^2.1.0-beta.7"
