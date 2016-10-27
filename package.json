@@ -8,7 +8,7 @@
     "logplease": "^1.2.8",
     "lru": "^3.1.0",
     "orbit-crypto": "^0.0.9",
-    "orbit-db": "^0.13.2"
+    "orbit-db": "^0.13.4"
   },
   "devDependencies": {
     "babel-core": "^6.14.0",
@@ -19,10 +19,11 @@
     "bluebird": "^3.4.6",
     "fs-pull-blob-store": "^0.4.1",
     "html5-fs": "git+https://github.com/haadcode/html5-fs.git",
-    "ipfs-test-apis": "^0.0.5",
+    "ipfs-api": "https://github.com/haadcode/js-ipfs-api.git",
+    "ipfs-test-apis": "^0.0.6",
     "json-loader": "^0.5.4",
     "mocha": "^2.5.3",
-    "webpack": "^2.1.0-beta.7"
+    "webpack": "^2.1.0-beta.25"
   },
   "scripts": {
     "test": "LOG=none ./node_modules/.bin/mocha",
