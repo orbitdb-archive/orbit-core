@@ -1,4 +1,4 @@
-# orbit-core-uport
+# orbit-core
 
 >  Communication protocol on IPFS
 

@@ -59,7 +59,7 @@ module.exports = {
       query: babel
     }, {
       test: /\.js$/,
-      include: /node_modules\/(hoek|qs|wreck|boom|promisify-es|logplease|uport.*|ipfs-.+|orbit.*|crdts)/,
+      include: /node_modules\/(hoek|qs|wreck|boom|promisify-es|logplease|ipfs-.+|orbit.*|crdts)/,
       loader: 'babel',
       query: babel
     }, {
