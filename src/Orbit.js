@@ -107,7 +107,7 @@ class Orbit {
 
     // console.log(this._user)
     const dbOptions = {
-      cacheFile: '/' + this.user.id + this._options.cacheFile,
+      cacheFile: this._options.cacheFile,
       maxHistory: this._options.maxHistory
     }
 
@@ -163,7 +163,7 @@ class Orbit {
     const post = this._cache.get(hash)
 
     if (post) {
-      Promise.resolve(post)
+      return Promise.resolve(post)
     } else {
       let post, signKey
       return this._ipfs.object.get(hash, { enc: 'base58' })
