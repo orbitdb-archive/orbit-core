@@ -18,12 +18,11 @@ module.exports = {
     library: 'Orbit',
     filename: './dist/orbit.min.js'
   },
-  debug: false,
   devtool: false,
   node: {
     console: false,
     process: 'mock',
-    Buffer: 'buffer'
+    Buffer: true
   },
   stats: {
     colors: true,
@@ -37,15 +36,12 @@ module.exports = {
         warnings: false
       }
     }),
-    new webpack.NoErrorsPlugin()
+    new webpack.NoErrorsPlugin(),
+    new webpack.LoaderOptionsPlugin({
+      debug: true
+    })    
   ],
-  resolveLoader: {
-    root: path.join(__dirname, 'node_modules')
-  },
   resolve: {
-    modulesDirectories: [
-      path.join(__dirname, 'node_modules')
-    ],
     alias: {
       'node_modules': path.join(__dirname + '/node_modules'),
       'fs': path.join(__dirname + '/node_modules', 'html5-fs')

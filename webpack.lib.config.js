@@ -20,22 +20,18 @@ module.exports = {
     filename: 'orbit.js'
   },
   target: 'node',
-  debug: false,
   stats: {
     colors: true,
     reasons: false
   },
   plugins: [
     new webpack.optimize.AggressiveMergingPlugin(),
-    new webpack.NoErrorsPlugin()
+    new webpack.NoErrorsPlugin(),
+    new webpack.LoaderOptionsPlugin({
+      debug: true
+    })
   ],
-  resolveLoader: {
-    root: path.join(__dirname, 'node_modules')
-  },
   resolve: {
-    modulesDirectories: [
-      path.join(__dirname, 'node_modules')
-    ],
     alias: {
       'node_modules': path.join(__dirname + '/node_modules')
     }
