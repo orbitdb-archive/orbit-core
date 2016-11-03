@@ -156,8 +156,9 @@ Add a file to a `channel`.
 
 Returns a *Promise* that resolves to the Post of the file that was added.
 
+Source options:
+
 ```javascript
-addFile(channel, source) where source is:
 {
   // for all files, filename must be specified
   filename: <filepath>,    // add an individual file

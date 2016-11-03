@@ -1,4 +1,5 @@
 node_modules/
 *sublime*
-keys/
-dist/
+dist/*.map
+orbit/
+test/keys/
