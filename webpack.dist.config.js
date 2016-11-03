@@ -63,6 +63,7 @@ module.exports = {
     }]
   },
   externals: {
+    fs: '{}',
     du: '{}',
     net: '{}',
     tls: '{}',
