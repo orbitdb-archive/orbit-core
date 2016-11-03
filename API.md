@@ -95,17 +95,18 @@ Or
 
 ```javascript
 orbit.join('mychannel')
-  .then((channel) => console.log(`Joined #${channel}`)))
+  .then((channel) => console.log(`Joined #${channel}`))
 ```
 
 #### leave(channel)
 Leave a `channel`.
 
-TODO: return value, thrown errors, example
+Returns null and emits `left` event after the `channel` was left.
 
 ```javascript
 orbit.leave()
 ```
+
 #### send(channel, message)
 Send a `message` to a `channel`. Channel must be joined first.
 
@@ -150,12 +151,36 @@ orbit.getPost(message.payload.value)
   })
 ```
 
-### TODO
-
-#### addFile(channel, filePath || buffer)
+#### addFile(channel, source)
 Add a file to a `channel`. 
 
-TODO: params, return value, thrown errors, example
+Returns a *Promise* that resolves to the Post of the file that was added.
+
+```javascript
+addFile(channel, source) where source is:
+{
+  // for all files, filename must be specified
+  filename: <filepath>,    // add an individual file
+  // and optionally use one of these in addition
+  directory: <path>,       // add a directory
+  buffer: <Buffer>,        // add a file from buffer
+  // optional meta data
+  meta: <meta data object>
+}
+```
+
+Usage:
+
+```javascript
+// add single file
+orbit.addFile(channel, { filename: "file1.txt" })
+// add directory
+orbit.addFile(channel, { filename: "test", directory: "./test" })
+// add a buffer as a file
+orbit.addFile(channel, { filename: "hello.json", buffer: new Buffer("hello world") })
+```
+
+### TODO
 
 #### getFile(hash)
 Returns contents of a file from IPFS.
