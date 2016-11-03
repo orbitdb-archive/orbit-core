@@ -16,8 +16,8 @@ require('logplease').setLogLevel('ERROR')
 const getAppPath = () => process.type && process.env.ENV !== "dev" ? process.resourcesPath + "/app/" : process.cwd()
 
 const defaultOptions = {
-  keystorePath: path.join(getAppPath(), "/keys"), // path where to keep generates keys
-  cacheFile: path.join(getAppPath(), "/orbit-data.json"), // path to orbit-db cache file
+  keystorePath: path.join(getAppPath(), "/orbit/keys"), // path where to keep generates keys
+  cachePath: path.join(getAppPath(), "/orbit/orbit-db"), // path to orbit-db cache file
   maxHistory: 64 // how many messages to retrieve from history on joining a channel
 }
 
@@ -59,7 +59,7 @@ class Orbit {
   /* Public methods */
 
   connect(credentials = {}) {
-    logger.debug("Load cache from:", this._options.cacheFile)
+    logger.debug("Load cache from:", this._options.cachePath)
     logger.info(`Connecting to Orbit as '${JSON.stringify(credentials)}`)
 
     if(typeof credentials === 'string') {
@@ -111,7 +111,7 @@ class Orbit {
 
     // console.log(this._user)
     const dbOptions = {
-      cacheFile: this._options.cacheFile,
+      cachePath: this._options.cachePath,
       maxHistory: this._options.maxHistory
     }
 

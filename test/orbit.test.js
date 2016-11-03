@@ -60,15 +60,15 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
         assert.notEqual(orbit._ipfs, null)
         assert.equal(orbit._orbitdb, null)
         assert.equal(orbit._options.maxHistory, 64)
-        assert.notEqual(orbit._options.cacheFile, null)
+        assert.notEqual(orbit._options.cachePath, null)
         assert.equal(Object.keys(orbit._channels).length, 0)
       })
 
       it('creates an instance with options', () => {
-        const orbitNoCache = new Orbit(ipfs, { cacheFile: null, maxHistory: 0, keystorePath: keystorePath })
+        const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
         assert.equal(orbitNoCache._orbitdb, null)
         assert.equal(orbitNoCache._options.maxHistory, 0)
-        assert.equal(orbitNoCache._options.cacheFile, null)
+        assert.equal(orbitNoCache._options.cachePath, null)
       })
     })
 
@@ -458,7 +458,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
         const ts = new Date().getTime()
         const content = 'hello' + ts
         let message
-        const orbitNoCache = new Orbit(ipfs, { cacheFile: null, maxHistory: 0, keystorePath: keystorePath })
+        const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
         orbitNoCache.connect(username)
           .then(() => orbitNoCache.join(channel))
           .then(() => orbitNoCache.send(channel, content))
@@ -479,7 +479,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
       })
 
       it('returns all messages in the right order', (done) => {
-        const orbitNoCache = new Orbit(ipfs, { cacheFile: null, maxHistory: 0, keystorePath: keystorePath })
+        const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
         const content = 'hello'
         const channel2 = 'channel-' + new Date().getTime()
         let result
@@ -508,7 +508,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
       })
 
       it('throws an error if trying to get from a channel that hasn\'t been joined', (done) => {
-        const orbitNoCache = new Orbit(ipfs, { cacheFile: null, maxHistory: 0, keystorePath: keystorePath })
+        const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
         orbitNoCache.connect(username)
           .then(() => orbitNoCache.get(channel))
           .then((res) => done(new Error("Got result but not joined on channel!")))

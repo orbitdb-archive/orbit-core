@@ -44,7 +44,6 @@ module.exports = {
   resolve: {
     alias: {
       'node_modules': path.join(__dirname + '/node_modules'),
-      'fs': path.join(__dirname + '/node_modules', 'html5-fs')
     }
   },
   module: {
