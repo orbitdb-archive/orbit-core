@@ -8,7 +8,7 @@
     "logplease": "^1.2.9",
     "lru": "^3.1.0",
     "orbit-crypto": "^0.0.9",
-    "orbit-db": "^0.15.0"
+    "orbit-db": "^0.15.1"
   },
   "devDependencies": {
     "babel-core": "^6.14.0",
@@ -22,7 +22,7 @@
     "ipfs-test-apis": "^0.0.6",
     "json-loader": "^0.5.4",
     "mocha": "^2.5.3",
-    "webpack": "2.1.0-beta.21"
+    "webpack": "^2.1.0-beta.27"
   },
   "scripts": {
     "test": "LOG=none ./node_modules/.bin/mocha",
