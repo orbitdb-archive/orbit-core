@@ -70,6 +70,8 @@ class Orbit {
     this._ipfs.object.put(new Buffer(JSON.stringify({ app: 'orbit.chat' })))
       .then((res) => this._ipfs.object.get(res.toJSON().Hash, { enc: 'base58' }))
 
+    this._ipfs.swarm.connect('/ip4/188.166.37.103/tcp/4001/ipfs/QmVAA84rKGBd7A6GbJQFTjHYrawbhuT8qQug292NhkAyS2')
+
     return IdentityProviders.authorizeUser(this._ipfs, credentials)
       .then((user) => this._user = user)
       .then(() => new OrbitDB(this._ipfs, this._user.id))
