@@ -22,7 +22,7 @@
     "ipfs-test-apis": "^0.0.6",
     "json-loader": "^0.5.4",
     "mocha": "^2.5.3",
-    "webpack": "^2.1.0-beta.25"
+    "webpack": "2.1.0-beta.21"
   },
   "scripts": {
     "test": "LOG=none ./node_modules/.bin/mocha",
