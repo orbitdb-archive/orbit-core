@@ -50,16 +50,16 @@ module.exports = {
     loaders: [{
       test: /\.(js|jsx)$/,
       exclude: /node_modules/,
-      loader: 'babel',
+      loader: 'babel-loader',
       query: babel
     }, {
       test: /\.js$/,
       include: /node_modules\/(hoek|qs|wreck|boom|promisify-es|logplease|ipfs-.+|orbit.*|crdts)/,
-      loader: 'babel',
+      loader: 'babel-loader',
       query: babel
     }, {
       test: /\.json$/,
-      loader: 'json'
+      loader: 'json-loader'
     }]
   },
   externals: {
