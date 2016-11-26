@@ -12,6 +12,8 @@ const Orbit        = require('../src/Orbit')
 // Init storage for saving test keys
 const keystorePath = path.join(process.cwd(), '/test/keys')
 
+const daemons = require('./daemons.conf.js')
+
 // Orbit
 const username = 'testrunner'
 let userId = 'QmXWWRTZzygRCnWP8sBcTuygreYBTaQR73zVpZvyxeuUqA'
@@ -26,7 +28,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
     let channel = 'orbit-tests'
 
     before(function (done) {
-      ipfsApi.start({ IpfsDataDir: '/tmp/orbit-tests' })
+      ipfsApi.start(daemons.daemon1)
         .then((res) => {
           ipfs = res
           done()
@@ -736,7 +738,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
           orbit.getDirectory(hash)
             .then((res) => {
               assert.notEqual(res, null)
-              assert.equal(res.length, 3)
+              assert.equal(res.length, 4)
               assert.equal(Object.keys(res[0]).length, 4)
               done()
             })
