@@ -19517,6 +19517,7 @@ class IdentityProviders {
 
 module.exports = IdentityProviders
 
+
 /***/ },
 /* 53 */
 /***/ function(module, exports, __webpack_require__) {
@@ -38296,7 +38297,7 @@ class Orbit {
       .then((orbitdb) => {
         this._orbitdb = orbitdb
         this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
-        // this._startPollingForPeers() // Get peers from libp2p and update the local peers array
+        this._startPollingForPeers() // Get peers from libp2p and update the local peers array
         return
       })
       .then(() => {

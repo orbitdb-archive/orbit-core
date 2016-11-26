@@ -2,4 +2,3 @@ node_modules/
 *sublime*
 dist/*.map
 orbit/
-test/keys/
