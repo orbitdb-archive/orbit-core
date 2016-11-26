@@ -68,9 +68,7 @@ class Orbit {
 
     // A hack to force peers to connect
     this._ipfs.object.put(new Buffer(JSON.stringify({ app: 'orbit.chat' })))
-      .then((res) => this._ipfs.object.get(res.toJSON().Hash, { enc: 'base58' }))
-
-    this._ipfs.swarm.connect('/ip4/188.166.37.103/tcp/4001/ipfs/QmVAA84rKGBd7A6GbJQFTjHYrawbhuT8qQug292NhkAyS2')
+      .then((res) => this._ipfs.object.get(res.toJSON().multihash, { enc: 'base58' }))
 
     return IdentityProviders.authorizeUser(this._ipfs, credentials)
       .then((user) => this._user = user)
@@ -79,7 +77,7 @@ class Orbit {
       .then((orbitdb) => {
         this._orbitdb = orbitdb
         this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
-        this._startPollingForPeers() // Get peers from libp2p and update the local peers array
+        // this._startPollingForPeers() // Get peers from libp2p and update the local peers array
         return
       })
       .then(() => {
@@ -173,7 +171,7 @@ class Orbit {
     } else {
       let post, signKey
       return this._ipfs.object.get(hash, { enc: 'base58' })
-        .then((res) => post = JSON.parse(res.toJSON().Data))
+        .then((res) => post = JSON.parse(res.toJSON().data))
         .then(() => Crypto.importKeyFromIpfs(this._ipfs, post.signKey))
         .then((signKey) => Crypto.verify(
           post.sig,
@@ -219,7 +217,7 @@ class Orbit {
       return ipfs.files.add(new Buffer(data))
         .then((result) => {
           return {
-            Hash: result[0].toJSON().Hash,
+            Hash: result[0].toJSON().multihash,
             isDirectory: false
           }
         })
@@ -286,7 +284,7 @@ class Orbit {
     } else {
       return this._ipfs.object.get(hash, { enc: 'base58' })
         .then((res) => {
-          const profileData = Object.assign(JSON.parse(res.toJSON().Data))
+          const profileData = Object.assign(JSON.parse(res.toJSON().data))
           Object.assign(profileData, { id: hash })
           return IdentityProviders.loadProfile(this._ipfs, profileData)
             .then((profile) => {

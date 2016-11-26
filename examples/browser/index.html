@@ -1,0 +1,132 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+  </head>
+  <body>
+    <h1 id="channel">Orbit</h1>
+    <div id="messages">Loading...</div>
+    <br/>
+    <b><label id="username" for="message"></label></b>
+    <input id="user" type="text"/>
+    <button id="connect" type="button">Reconnect</button>
+    <br/>
+    <br/>
+    <input id="message" type="text" placeholder="Type a message..."/>
+    <button id="send" type="button">Send</button>
+    <button id="send2" type="button">Send Greeting</button>
+
+    <script type="text/javascript" src="lib/orbit.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="lib/ipfs-api.min.js" charset="utf-8"></script>
+
+    <script type="text/javascript">
+      function formatTimestamp(timestamp) {
+        const safeTime = (time) => ("0" + time).slice(-2)
+        const date = new Date(timestamp)
+        return safeTime(date.getHours()) + ":" + safeTime(date.getMinutes()) + ":" + safeTime(date.getSeconds())
+      }
+
+      const channelNameElement = document.getElementById("channel")
+      const messagesElement = document.getElementById("messages")
+      const usernameElement = document.getElementById("username")
+      const userField = document.getElementById("user")
+      const connectButton = document.getElementById("connect")
+      const messageField = document.getElementById("message")
+      const sendButton = document.getElementById("send")
+      const sendGreetingButton = document.getElementById("send2")
+
+      let username = "Anonymous" + (new Date().getTime()).toString().slice(-4)
+      const channel  = 'orbit-browser-example'      
+      const ipfs = HaadIpfsApi('localhost', '5001')
+
+      let orbit
+
+      // Setup Orbit
+      const options = {
+        maxHistory: 10, 
+        cachePath: username + '/orbit-db',
+      }
+
+      const send = () => {
+        orbit.send(channel, messageField.value)
+        messageField.value = null
+      }
+
+      const send2 = () => {
+        const creatures = ['👻', '🐙', '🐷', '🐬', '🐞', '🐈', '🙉', '🐸', '🐓']
+        const idx = Math.floor(Math.random() * creatures.length)
+        orbit.send(channel, "Greetings! " + creatures[idx])
+      }
+
+      const connect = () => {
+        messagesElement.innerHTML = ''
+        
+        if (orbit && orbit.network) {
+          connectButton.removeEventListener('click', connect)
+          sendGreetingButton.removeEventListener('click', send2)
+          sendButton.removeEventListener('click', send)
+          orbit.leave(channel)
+          orbit.disconnect()
+          username = userField.value
+        }
+
+        orbit = new Orbit(ipfs, options)
+
+        // Handle new messages
+        orbit.events.on('message', (channel, message) => {
+          // Get the actual content of the message
+          orbit.getPost(message.payload.value, true)
+            .then((post) => {
+              const m = `${formatTimestamp(post.meta.ts)} < ${post.meta.from.name}> ${post.content}`
+              console.log(m)
+              messagesElement.innerHTML += m + "<br/>"
+            })
+        })
+
+        // Connect        
+        orbit.connect(username)
+          .then(() => {
+            connectButton.addEventListener('click', connect)
+            userField.value = username
+            return orbit.join(channel)
+          })
+          .then(() => {
+            channelNameElement.innerHTML = "#" + channel
+            console.log(`Joined #${channel}`)    
+
+            // Get the channel's database and wait for the history to be loaded
+            const feed = orbit.channels[channel].feed
+            feed.events.on('ready', (name) => {
+              console.log("HISTORY!")
+              messagesElement.innerHTML = ''
+              // Get last 10 messages from the database
+              const oldMessages = feed.iterator({ limit: 10 }).collect()
+              // Get the content for each message
+              Promise.all(oldMessages.map((e) => orbit.getPost(e.payload.value, true)))
+                .then((posts) => {
+                  const history = posts.map((post) => `${formatTimestamp(post.meta.ts)} < ${post.meta.from.name}> ${post.content}<br/>`).join("\n")
+                  console.log(history)
+                  messagesElement.innerHTML += history
+                  usernameElement.innerHTML = username
+                  // Send a new message to the channel
+                  orbit.send(channel, `/me has joined ${channel}`)
+                  sendButton.addEventListener('click', send)
+                  messageField.addEventListener('keyup', (event) => {
+                    if (event.keyCode == 13)
+                      send()
+                  })
+                  sendGreetingButton.addEventListener('click', send2)
+                })
+            })
+
+            return
+          })
+          .catch((e) => {
+            console.log(e)
+          })
+      }
+
+      connect()
+
+    </script>
+  </body>
+</html>

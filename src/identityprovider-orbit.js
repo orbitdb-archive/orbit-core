@@ -34,7 +34,7 @@ class OrbitIdentityProvider {
         }
 
         return ipfs.object.put(new Buffer(JSON.stringify(profileData)))
-          .then((res) => res.toJSON().Hash)
+          .then((res) => res.toJSON().multihash)
       })
       .then((hash) => {
         profileData.id = hash

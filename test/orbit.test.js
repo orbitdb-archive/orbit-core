@@ -20,7 +20,7 @@ let ipfs, ipfsDaemon
 IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
 
   describe('Orbit with ' + ipfsApi.name, function() {
-    this.timeout(20000)
+    this.timeout(60000)
 
     let orbit
     let channel = 'orbit-tests'
@@ -358,7 +358,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
       it('sends a message to a channel', (done) => {
         const content = 'hello1'
         let message
-        orbit.join(channel)
+        orbit.join(channel, 0)
           .then(() => orbit.send(channel, content))
           .then((res) => message = res)
           .then(() => orbit.get(channel))

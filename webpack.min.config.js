@@ -18,10 +18,9 @@ module.exports = {
     library: 'Orbit',
     filename: './dist/orbit.min.js'
   },
-  devtool: false,
+  target: 'web',
   node: {
     console: false,
-    process: 'mock',
     Buffer: true
   },
   stats: {
@@ -30,22 +29,14 @@ module.exports = {
   },
   plugins: [
     new webpack.optimize.AggressiveMergingPlugin(),
+    new webpack.NoErrorsPlugin(),
     new webpack.optimize.UglifyJsPlugin({
       mangle: false,
       compress: {
         warnings: false
       }
     }),
-    new webpack.NoErrorsPlugin(),
-    new webpack.LoaderOptionsPlugin({
-      debug: true
-    })    
   ],
-  resolve: {
-    alias: {
-      'node_modules': path.join(__dirname + '/node_modules'),
-    }
-  },
   module: {
     loaders: [{
       test: /\.(js|jsx)$/,
@@ -62,13 +53,37 @@ module.exports = {
       loader: 'json-loader'
     }]
   },
+  resolve: {
+    modules: [
+      'node_modules',
+      path.resolve(__dirname, '../node_modules')
+    ],
+    alias: {
+      // These are needed because node-libs-browser depends on outdated
+      // versions
+      //
+      // Can be dropped once https://github.com/devongovett/browserify-zlib/pull/18
+      // is shipped
+      zlib: 'browserify-zlib',
+      // Can be dropped once https://github.com/webpack/node-libs-browser/pull/41
+      // is shipped
+      http: 'stream-http'
+    }
+  },
+  resolveLoader: {
+    modules: [
+      'node_modules',
+      path.resolve(__dirname, '../node_modules')
+    ],
+    moduleExtensions: ['-loader']
+  },
   externals: {
     fs: '{}',
-    du: '{}',
-    net: '{}',
-    tls: '{}',
-    console: '{}',
-    'require-dir': '{}',
-    mkdirp: '{}'
-  }
+    // du: '{}',
+    // net: '{}',
+    // tls: '{}',
+    // console: '{}',
+    // 'require-dir': '{}',
+    // mkdirp: '{}'
+  },
 }
