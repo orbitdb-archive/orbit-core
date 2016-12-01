@@ -5,7 +5,7 @@ const path         = require('path')
 const assert       = require('assert')
 const Promise      = require('bluebird')
 const IpfsApis     = require('ipfs-test-apis')
-const EventStore   = require('orbit-db-eventstore')
+// const EventStore   = require('orbit-db-eventstore')
 const Post         = require('ipfs-post')
 const Orbit        = require('../src/Orbit')
 
@@ -337,7 +337,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
                 assert.equal(Object.keys(orbit.channels).length, 2)
                 assert.equal(c.name, channel)
                 assert.equal(c.password, null)
-                assert.equal(Object.prototype.isPrototypeOf(c.feed, EventStore), true)
+                // assert.equal(Object.prototype.isPrototypeOf(c.feed, EventStore), true)
                 done()
               })
             })
@@ -348,6 +348,7 @@ IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
 
     describe('send', function() {
       beforeEach((done) => {
+        orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0 })
         orbit.connect(username)
           .then((res) => done())
           .catch(done)

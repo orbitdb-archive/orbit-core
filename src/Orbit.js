@@ -69,6 +69,7 @@ class Orbit {
     // A hack to force peers to connect
     this._ipfs.object.put(new Buffer(JSON.stringify({ app: 'orbit.chat' })))
       .then((res) => this._ipfs.object.get(res.toJSON().multihash, { enc: 'base58' }))
+      .catch((err) => logger.error(err))
 
     return IdentityProviders.authorizeUser(this._ipfs, credentials)
       .then((user) => this._user = user)
