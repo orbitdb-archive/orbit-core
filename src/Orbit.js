@@ -352,15 +352,16 @@ class Orbit {
       .then((peers) => Object.keys(peers).map((e) => peers[e].multiaddrs[0].toString()))
       .catch((e) => logger.error(e))
     } else {
-      // js-_ipfs-api
-      return new Promise((resolve, reject) => {
-        return this._ipfs.swarm.peers((err, res) => {
-          if(err) reject(err)
-          resolve(res)
-        })
-      })
-      .then((peers) => peers.map((e) => e.toString()))
-      .catch((e) => logger.error(e))
+      return Promise.resolve([])
+      // // js-_ipfs-api
+      // return new Promise((resolve, reject) => {
+      //   return this._ipfs.swarm.peers((err, res) => {
+      //     if(err) reject(err)
+      //     resolve(res)
+      //   })
+      // })
+      // .then((peers) => peers.map((e) => e.toString()))
+      // .catch((e) => logger.error(e))
     }
   }
 
