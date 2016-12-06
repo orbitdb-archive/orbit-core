@@ -271,7 +271,10 @@ class Orbit {
   }
 
   getFile(hash) {
-    return this._ipfs.cat(hash)
+    if (this._ipfs.cat
+      return this._ipfs.cat(hash)
+
+    return this._ipfs.files.cat(hash)
   }
 
   getDirectory(hash) {
@@ -342,28 +345,14 @@ class Orbit {
   }
 
   _updateSwarmPeers() {
-    if(this._ipfs.libp2p && this._ipfs.libp2p.swarm.peers) {
-      // js-_ipfs
-      return new Promise((resolve, reject) => {
-        this._ipfs.libp2p.swarm.peers((err, peers) => {
-          if(err) reject(err)
-          resolve(peers)
-        })
+    return new Promise((resolve, reject) => {
+      this._ipfs.swarm.peers((err, res) => {
+        if(err) reject(err)
+        resolve(res)
       })
-      .then((peers) => Object.keys(peers).map((e) => peers[e].multiaddrs[0].toString()))
-      .catch((e) => logger.error(e))
-    } else {
-      return Promise.resolve([])
-      // // js-_ipfs-api
-      // return new Promise((resolve, reject) => {
-      //   return this._ipfs.swarm.peers((err, res) => {
-      //     if(err) reject(err)
-      //     resolve(res)
-      //   })
-      // })
-      // .then((peers) => peers.map((e) => e.toString()))
-      // .catch((e) => logger.error(e))
-    }
+    })
+    .then((peers) => Object.keys(peers).map((e) => peers[e].addr.toString()))
+    .catch((e) => logger.error(e))
   }
 
 }
