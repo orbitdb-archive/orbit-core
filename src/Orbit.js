@@ -271,7 +271,7 @@ class Orbit {
   }
 
   getFile(hash) {
-    if (this._ipfs.cat
+    if (this._ipfs.cat)
       return this._ipfs.cat(hash)
 
     return this._ipfs.files.cat(hash)
