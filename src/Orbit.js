@@ -1,5 +1,6 @@
 'use strict'
 
+const Promise      = require('bluebird')
 const path         = require('path')
 const EventEmitter = require('events').EventEmitter
 const OrbitDB      = require('orbit-db')
@@ -78,6 +79,8 @@ class Orbit {
       .then((orbitdb) => {
         this._orbitdb = orbitdb
         this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
+        this._orbitdb.events.on('history', this._handleHistory.bind(this)) // Subscribe to updates in the database
+
         this._startPollingForPeers() // Get peers from libp2p and update the local peers array
         return
       })
@@ -161,7 +164,11 @@ class Orbit {
     }
 
     return this._getChannelFeed(channel)
-      .then((feed) => feed.iterator(options).collect())
+      .then((feed) => {
+        const messages = feed.iterator(options).collect()
+        return Promise.map(messages, (e) => this.getPost(e.payload.value, true), { concurrency: 1 })
+          .catch((e) => logger.error(e))
+      })
   }
 
   getPost(hash, withUserProfile) {
@@ -173,16 +180,16 @@ class Orbit {
       let post, signKey
       return this._ipfs.object.get(hash, { enc: 'base58' })
         .then((res) => post = JSON.parse(res.toJSON().data))
-        .then(() => Crypto.importKeyFromIpfs(this._ipfs, post.signKey))
-        .then((signKey) => Crypto.verify(
-          post.sig,
-          signKey,
-          new Buffer(JSON.stringify({
-            content: post.content,
-            meta: post.meta,
-            replyto: post.replyto
-          })))
-         )
+        // .then(() => Crypto.importKeyFromIpfs(this._ipfs, post.signKey))
+        // .then((signKey) => Crypto.verify(
+        //   post.sig,
+        //   signKey,
+        //   new Buffer(JSON.stringify({
+        //     content: post.content,
+        //     meta: post.meta,
+        //     replyto: post.replyto
+        //   })))
+        //  )
         .then(() => {
           this._cache.set(hash, post)
 
@@ -327,9 +334,32 @@ class Orbit {
 
   // TODO: tests for everything below
   _handleMessage(channel, message) {
-    logger.debug("New message in #", channel, "\n" + JSON.stringify(message, null, 2))
-    if(this._channels[channel])
-      this.events.emit('message', channel, message)
+    if(this._channels[channel]) {
+      logger.debug("New message in #", channel, "\n" + JSON.stringify(message, null, 2))
+      this.getPost(message.payload.value, true)
+        .then((post) => {
+          post.hash = post.hash || message.payload.value
+          this.events.emit('message', channel, post)
+        })
+        .catch((err) => logger.error(err))
+    } else {
+      logger.warn("Received a message on a channel we're not subscribed to #" + channel)
+    }
+  }
+
+  _handleHistory(channel, messages) {
+    if(this._channels[channel]) {
+      logger.debug("History in #", channel, "\n" + JSON.stringify(message, null, 2))
+      const res = Promise
+      this.getPost(message.payload.value, true)
+        .then((post) => {
+          post.hash = post.hash || message.payload.value
+          this.events.emit('message', channel, post)
+        })
+        .catch((err) => logger.error(err))
+    } else {
+      logger.warn("Received a message on a channel we're not subscribed to #" + channel)
+    }
   }
 
   _startPollingForPeers() {
