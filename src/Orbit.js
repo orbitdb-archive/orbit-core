@@ -218,7 +218,7 @@ class Orbit {
       return ipfs.files.add(new Buffer(data))
         .then((result) => {
           return {
-            Hash: result[0].toJSON().multihash,
+            Hash: result[0].hash,
             isDirectory: false
           }
         })
