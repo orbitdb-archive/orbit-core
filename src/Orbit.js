@@ -172,7 +172,7 @@ class Orbit {
       })
   }
 
-  getPost(hash, withUserProfile) {
+  getPost(hash, withUserProfile = true) {
     const post = this._cache.get(hash)
 
     if (post) {
@@ -193,6 +193,9 @@ class Orbit {
         //  )
         .then(() => {
           this._cache.set(hash, post)
+
+          // Append the hash to the data structure so consumers can use it directly
+          post.hash = post.hash || hash
 
           if (withUserProfile)
             return this.getUser(post.meta.from)
@@ -339,7 +342,7 @@ class Orbit {
       logger.debug("New message in #", channel, "\n" + JSON.stringify(message, null, 2))
       this.getPost(message.payload.value, true)
         .then((post) => {
-          post.hash = post.hash || message.payload.value
+          // post.hash = post.hash || message.payload.value
           this.events.emit('message', channel, post)
         })
         .catch((err) => logger.error(err))
@@ -354,7 +357,7 @@ class Orbit {
       Promise.map(messages, (e) => {
         return this.getPost(e.payload.value, true)
           .then((post) => {
-            post.hash = post.hash || e.payload.value
+            // post.hash = post.hash || e.payload.value
             this.events.emit('message', channel, post)
           })
       }, { concurrency: 1 })

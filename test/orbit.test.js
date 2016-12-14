@@ -1,17 +1,21 @@
 'use strict'
 
 const fs           = require('fs')
+const rmrf         = require('rimraf')
 const path         = require('path')
 const assert       = require('assert')
 const Promise      = require('bluebird')
 const IpfsApis     = require('ipfs-test-apis')
-// const EventStore   = require('orbit-db-eventstore')
 const Post         = require('ipfs-post')
 const Orbit        = require('../src/Orbit')
+
+// Mute logging
+require('logplease').setLogLevel('NONE')
 
 // Init storage for saving test keys
 const keystorePath = path.join(process.cwd(), '/test/keys')
 
+// Settings for the test ipfs daemons
 const daemons = require('./daemons.conf.js')
 
 // Orbit
@@ -19,16 +23,16 @@ const username = 'testrunner'
 let userId = 'QmXWWRTZzygRCnWP8sBcTuygreYBTaQR73zVpZvyxeuUqA'
 
 let ipfs, ipfsDaemon
-IpfsApis.filter((e) => e.name === 'js-ipfs-api').forEach(function(ipfsApi) {
-// IpfsApis.forEach(function(ipfsApi) {
+IpfsApis.forEach(function(ipfsApi) {
 
   describe('Orbit with ' + ipfsApi.name, function() {
-    this.timeout(60000)
+    this.timeout(6000)
 
     let orbit
     let channel = 'orbit-tests'
 
     before(function (done) {
+      rmrf.sync(daemons.daemon1.IpfsDataDir)
       ipfsApi.start(daemons.daemon1)
         .then((res) => {
           ipfs = res

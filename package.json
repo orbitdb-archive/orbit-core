@@ -1,6 +1,6 @@
 {
   "name": "orbit_",
-  "version": "0.1.0-beta.10",
+  "version": "0.1.0-beta.11",
   "description": "Orbit - Communication System on IPFS",
   "main": "src/Orbit.js",
   "dependencies": {
@@ -21,10 +21,11 @@
     "ipfs-test-apis": "^0.1.0-beta.4",
     "json-loader": "^0.5.4",
     "mocha": "^2.5.3",
+    "rimraf": "^2.5.4",
     "webpack": "^2.1.0-beta.27"
   },
   "scripts": {
-    "test": "LOG=none ./node_modules/.bin/mocha",
+    "test": "mocha",
     "build": "npm run build:dist && npm run build:minified",
     "build:dist": "webpack --config webpack.config.js",
     "build:minified": "webpack --config webpack.min.config.js"
