@@ -18,4 +18,4 @@ clean:
 	rm -rf orbit/
 	rm -rf node_modules/
 
-.PHONY: all deps test clean
+.PHONY: test
