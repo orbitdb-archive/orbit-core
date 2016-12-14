@@ -79,8 +79,6 @@ class Orbit {
       .then((orbitdb) => {
         this._orbitdb = orbitdb
         this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
-        this._orbitdb.events.on('history', this._handleHistory.bind(this)) // Subscribe to updates in the database
-
         this._startPollingForPeers() // Get peers from libp2p and update the local peers array
         return
       })
@@ -124,6 +122,9 @@ class Orbit {
       password: null,
       feed: this._orbitdb.eventlog(channel, dbOptions) // feed is the database instance
     }
+
+    // Subscribe to updates in the database
+    this._channels[channel].feed.events.on('history', this._handleHistory.bind(this))
 
     this.events.emit('joined', channel)
     return Promise.resolve(true)
@@ -349,14 +350,16 @@ class Orbit {
 
   _handleHistory(channel, messages) {
     if(this._channels[channel]) {
-      logger.debug("History in #", channel, "\n" + JSON.stringify(message, null, 2))
-      const res = Promise
-      this.getPost(message.payload.value, true)
-        .then((post) => {
-          post.hash = post.hash || message.payload.value
-          this.events.emit('message', channel, post)
-        })
-        .catch((err) => logger.error(err))
+      logger.debug("History in #", channel, messages.length)
+      Promise.map(messages, (e) => {
+        return this.getPost(e.payload.value, true)
+          .then((post) => {
+            post.hash = post.hash || e.payload.value
+            this.events.emit('message', channel, post)
+          })
+      }, { concurrency: 1 })
+      .then((res) => this.events.emit('history', channel, res))
+      .catch((e) => logger.error(e))
     } else {
       logger.warn("Received a message on a channel we're not subscribed to #" + channel)
     }
