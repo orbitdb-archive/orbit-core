@@ -1,14 +1,15 @@
 'use strict'
 
-const Promise      = require('bluebird')
-const path         = require('path')
+const Promise = require('bluebird')
+const path = require('path')
 const EventEmitter = require('events').EventEmitter
-const OrbitDB      = require('orbit-db')
-const Crypto       = require('orbit-crypto')
-const Post         = require('ipfs-post')
-const Logger       = require('logplease')
-const LRU          = require('lru')
-const OrbitUser    = require('./orbit-user')
+const OrbitDB = require('orbit-db')
+const Crypto = require('orbit-crypto')
+const Post = require('ipfs-post')
+const Logger = require('logplease')
+const LRU = require('lru')
+const rmrf = require('rimraf')
+const OrbitUser= require('./orbit-user')
 const IdentityProviders = require('./identity-providers')
 
 const logger = Logger.create("Orbit", { color: Logger.Colors.Green })
@@ -250,8 +251,10 @@ class Orbit {
 
     logger.info("Adding file from path '" + source.filename + "'")
 
-    const isBuffer = (source.buffer && source.filename) ? true : false
-    const name = source.directory ? source.directory.split("/").pop() : source.filename.split("/").pop()
+    const isBuffer = (source.buffer && source.filename)
+    const name = source.directory 
+      ? source.directory.split("/").pop() 
+      : source.filename.split("/").pop()
     const size = (source.meta && source.meta.size) ? source.meta.size : 0
 
     let feed, addToIpfs
