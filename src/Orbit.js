@@ -173,7 +173,7 @@ class Orbit {
       })
   }
 
-  getPost(hash, withUserProfile = true) {
+  getPost(hash) {
     const post = this._cache.get(hash)
 
     if (post) {
@@ -198,13 +198,14 @@ class Orbit {
           // Append the hash to the data structure so consumers can use it directly
           post.hash = post.hash || hash
 
-          if (withUserProfile)
-            return this.getUser(post.meta.from)
-              .then((user) => {
-                post.meta.from = user
-                return post
-              })
+          // if (withUserProfile) {
+          return this.getUser(post.meta.from)
+          // }
 
+          // return post
+        })
+        .then((user) => {
+          post.meta.from = user
           return post
         })
     }

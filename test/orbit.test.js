@@ -1,13 +1,14 @@
 'use strict'
 
-const fs           = require('fs')
-const rmrf         = require('rimraf')
-const path         = require('path')
-const assert       = require('assert')
-const Promise      = require('bluebird')
-const IpfsApis     = require('ipfs-test-apis')
-const Post         = require('ipfs-post')
-const Orbit        = require('../src/Orbit')
+const fs = require('fs')
+const rmrf = require('rimraf')
+const path = require('path')
+const assert = require('assert')
+const Promise = require('bluebird')
+const Post = require('ipfs-post')
+const IpfsNodeDaemon = require('ipfs-daemon/src/ipfs-node-daemon')
+const IpfsNativeDaemon = require('ipfs-daemon/src/ipfs-native-daemon')
+const Orbit = require('../src/Orbit')
 
 // Mute logging
 require('logplease').setLogLevel('NONE')
@@ -18,46 +19,54 @@ const keystorePath = path.join(process.cwd(), '/test/keys')
 // Settings for the test ipfs daemons
 const daemons = require('./daemons.conf.js')
 
+// Default ipfs-daemon IPFS repo directory
+const defaultIpfsDirectory = './ipfs'
+
 // Orbit
 const username = 'testrunner'
 let userId = 'QmXWWRTZzygRCnWP8sBcTuygreYBTaQR73zVpZvyxeuUqA'
 
-let ipfs, ipfsDaemon
-IpfsApis.forEach(function(ipfsApi) {
+const hasIpfsApiWithPubsub = (ipfs) => {
+  return ipfs.object.get !== undefined
+      && ipfs.object.put !== undefined
+      && ipfs.pubsub.publish !== undefined
+      && ipfs.pubsub.subscribe !== undefined
+}
 
-  describe('Orbit with ' + ipfsApi.name, function() {
-    this.timeout(6000)
+let ipfs, ipfsDaemon, isJsIpfs
+
+[IpfsNativeDaemon, IpfsNodeDaemon].forEach((IpfsDaemon) => {
+
+  describe('Orbit', function() {
+    this.timeout(60000)
 
     let orbit
     let channel = 'orbit-tests'
 
     before(function (done) {
+      rmrf.sync(defaultIpfsDirectory)
       rmrf.sync(daemons.daemon1.IpfsDataDir)
-      ipfsApi.start(daemons.daemon1)
-        .then((res) => {
-          ipfs = res
-          done()
-        })
-        .catch(done)
+      ipfs = new IpfsDaemon()
+      ipfs.on('error', done)
+      ipfs.on('ready', () => {
+        isJsIpfs = ipfs.constructor.name !== 'IpfsNativeDaemon'
+        assert.equal(hasIpfsApiWithPubsub(ipfs), true)
+        done()        
+      })
     })
 
     beforeEach(function (done) {
-      if(orbit)
-        orbit.disconnect()
-
+      if(orbit) orbit.disconnect()
       orbit = new Orbit(ipfs, { keystorePath: keystorePath })
       done()
     })
 
     after((done) => {
-      if(orbit)
-        orbit.disconnect()
-
+      if(orbit) orbit.disconnect()
       orbit = null
-
+      ipfs.stop()
+      rmrf.sync(defaultIpfsDirectory)
       done()
-      // if(ipfs)
-      //   ipfsApi.stop().then(done).catch(done)
     })
 
     describe('constructor', function() {
@@ -573,7 +582,7 @@ IpfsApis.forEach(function(ipfsApi) {
       it.skip('throws an error when trying to get a Post with invalid hash', (done) => {
         orbit.getPost("Qm...Foo")
           .catch((e) => {
-            if (ipfsApi.name === 'js-ipfs')
+            if (isJsIpfs)
               assert.equal(e.message, "Invalid Key")
             else
               assert.equal(e.message, "invalid ipfs ref path")
@@ -606,9 +615,9 @@ IpfsApis.forEach(function(ipfsApi) {
         const filename = 'mocha.opts'
         const filePath = path.join(process.cwd(), '/test' , filename)
 
-        const file = ipfsApi.name === 'js-ipfs-api'
-          ? { filename: filePath }
-          : { filename: filename, buffer: Buffer(fs.readFileSync(filePath)) }
+        const file = isJsIpfs
+          ? { filename: filename, buffer: Buffer(fs.readFileSync(filePath)) }
+          : { filename: filePath }
 
         orbit.join(channel)
           .then(() => orbit.addFile(channel, file))
@@ -628,44 +637,44 @@ IpfsApis.forEach(function(ipfsApi) {
       })
 
       it('adds a directory recursively', (done) => {
-        if (ipfsApi.name !== 'js-ipfs') {
-          const directory = 'test'
-          const p = path.join(process.cwd(), directory)
-          const dir = { filename: directory, directory: p }
+        // skip if js-ipfs
+        if (isJsIpfs)
+          return done()
 
-          orbit.join(channel)
-            .then(() => orbit.addFile(channel, dir))
-            .then((res) => {
-              assert.notEqual(res.Post, null)
-              assert.equal(res.Post instanceof Post.Types.Directory, true)
-              assert.equal(res.Hash.startsWith('Qm'), true)
-              assert.equal(res.Post.name, directory)
-              // assert.equal(res.Post.size === 409363 || res.Post.size === 409449, true)
-              assert.equal(Object.keys(res.Post.meta).length, 4)
-              // assert.equal(res.Post.meta.size === 409363 || res.Post.meta.size === 409449, true)
-              assert.equal(res.Post.meta.from, userId)
-              assert.notEqual(res.Post.meta.ts, null)
-              done()
-            })
-            .catch(done)
-        } else {
-          done()
-        }
+        const directory = 'test'
+        const p = path.join(process.cwd(), directory)
+        const dir = { filename: directory, directory: p }
+
+        orbit.join(channel)
+          .then(() => orbit.addFile(channel, dir))
+          .then((res) => {
+            assert.notEqual(res.Post, null)
+            assert.equal(res.Post instanceof Post.Types.Directory, true)
+            assert.equal(res.Hash.startsWith('Qm'), true)
+            assert.equal(res.Post.name, directory)
+            // assert.equal(res.Post.size === 409363 || res.Post.size === 409449, true)
+            assert.equal(Object.keys(res.Post.meta).length, 4)
+            // assert.equal(res.Post.meta.size === 409363 || res.Post.meta.size === 409449, true)
+            assert.equal(res.Post.meta.from, userId)
+            assert.notEqual(res.Post.meta.ts, null)
+            done()
+          })
+          .catch(done)
       })
 
       it('throws an error if file not found', (done) => {
-        if (ipfsApi.name !== 'js-ipfs') {
-          const filename = 'non-existent'
-          const filePath = path.join(process.cwd(), '/test' , filename)
-          orbit.join(channel)
-            .then(() => orbit.addFile(channel, { filename: filePath }))
-            .catch((e) => {
-              assert.equal(e.message.toString(), `ENOENT: no such file or directory, stat '${filePath}'`)
-              done()
-            })
-        } else {
-          done()
-        }
+        // skip if js-ipfs
+        if (isJsIpfs)
+          return done()
+
+        const filename = 'non-existent'
+        const filePath = path.join(process.cwd(), '/test' , filename)
+        orbit.join(channel)
+          .then(() => orbit.addFile(channel, { filename: filePath }))
+          .catch((e) => {
+            assert.equal(e.message.toString(), `ENOENT: no such file or directory, stat '${filePath}'`)
+            done()
+          })
       })
 
 
@@ -699,13 +708,13 @@ IpfsApis.forEach(function(ipfsApi) {
     describe('getFile', function() {
       const filename = 'mocha.opts'
       const filePath = path.join(process.cwd(), '/test' , filename)
-      const file = ipfsApi.name === 'js-ipfs-api'
-        ? { filename: filePath }
-        : { filename: filename, buffer: new Buffer(fs.readFileSync(filePath)) }
-
       let hash
 
       beforeEach((done) => {
+        const file = isJsIpfs
+          ? { filename: filename, buffer: Buffer(fs.readFileSync(filePath)) }
+          : { filename: filePath }
+
         orbit.connect(username)
           .then(() => orbit.join(channel))
           .then(() => orbit.addFile(channel, file))
@@ -734,35 +743,41 @@ IpfsApis.forEach(function(ipfsApi) {
     })
 
     describe('getDirectory', function() {
-      if (ipfsApi.name !== 'js-ipfs') {
-        const directory = 'test'
-        const filePath = path.join(process.cwd(), directory)
-        let hash
+      const directory = 'test'
+      const filePath = path.join(process.cwd(), directory)
+      let hash
 
-        beforeEach((done) => {
-          orbit.connect(username)
-            .then(() => orbit.join(channel))
-            .then(() => orbit.addFile(channel, { filename: "test directory", directory: filePath }))
-            .then((res) => hash = res.Post.hash)
-            .then(() => done())
-            .catch(done)
-        })
+      beforeEach((done) => {
+        // skip with js-ipfs
+        if (isJsIpfs)
+          return done()
 
-        afterEach(() => {
-          orbit.disconnect()
-        })
+        orbit.connect(username)
+          .then(() => orbit.join(channel))
+          .then(() => orbit.addFile(channel, { filename: "test directory", directory: filePath }))
+          .then((res) => hash = res.Post.hash)
+          .then(() => done())
+          .catch(done)
+      })
 
-        it('returns a directory', (done) => {
-          orbit.getDirectory(hash)
-            .then((res) => {
-              assert.notEqual(res, null)
-              assert.equal(res.length, 4)
-              assert.equal(Object.keys(res[0]).length, 4)
-              done()
-            })
-            .catch(done)
-        })
-      }
+      afterEach(() => {
+        orbit.disconnect()
+      })
+
+      it('returns a directory', (done) => {
+        // skip with js-ipfs
+        if (isJsIpfs)
+          return done()
+
+        orbit.getDirectory(hash)
+          .then((res) => {
+            assert.notEqual(res, null)
+            assert.equal(res.length, 4)
+            assert.equal(Object.keys(res[0]).length, 4)
+            done()
+          })
+          .catch(done)
+      })
     })
 
     describe('events', function() {
