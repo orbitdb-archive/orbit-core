@@ -26,7 +26,7 @@ npm install orbit_
 
 ### Example
 
-See [examples/bot.js]() for a more detailed example.
+See [examples/browser/index.html]() for a more detailed example.
 
 ```javascript
 /* NOTE! To run this example, you need to have an IPFS daemon running */
@@ -69,6 +69,30 @@ orbit.connect('Example Bot')
   .catch((e) => logger.error(e))
 ```
 
+## API
+
+See [API documentation](https://github.com/orbitdb/orbit-core/blob/master/API.md) for full details.
+
+- [Getting Started](https://github.com/orbitdb/orbit-core/blob/master/API.md#getting-started)
+- [Constructor](https://github.com/orbitdb/orbit-core/blob/master/API.md#constructor)
+- [Properties](https://github.com/orbitdb/orbit-core/blob/master/API.md#properties)
+  - [user](https://github.com/orbitdb/orbit-core/blob/master/API.md#user)
+  - [network](https://github.com/orbitdb/orbit-core/blob/master/API.md#network)
+  - [channels](https://github.com/orbitdb/orbit-core/blob/master/API.md#channels)
+  - [peers](https://github.com/orbitdb/orbit-core/blob/master/API.md#peers)
+- [Methods](https://github.com/orbitdb/orbit-core/blob/master/API.md#methods)
+  - [connect(username)](https://github.com/orbitdb/orbit-core/blob/master/API.md#connectusername)
+  - [disconnect()](https://github.com/orbitdb/orbit-core/blob/master/API.md#disconnect)
+  - [join(channel)](https://github.com/orbitdb/orbit-core/blob/master/API.md#joinchannel)
+  - [leave(channel)](https://github.com/orbitdb/orbit-core/blob/master/API.md#leavechannel)
+  - [send(channel, message)](https://github.com/orbitdb/orbit-core/blob/master/API.md#sendchannel-message)
+  - [get(channel, [lessThanHash], [greaterThanHash], [amount])](https://github.com/orbitdb/orbit-core/blob/master/API.md#getchannel-lessthanhash-greaterthanhash-amount)
+  - [getPost(hash, [withUserProfile = true])](https://github.com/orbitdb/orbit-core/blob/master/API.md#getposthash-withuserprofile--true)
+  - [getUser(hash)](https://github.com/orbitdb/orbit-core/blob/master/API.md#getuserhash)
+  - [addFile(channel, source)](https://github.com/orbitdb/orbit-core/blob/master/API.md#addfilechannel-source)
+  - [getFile(hash)](https://github.com/orbitdb/orbit-core/blob/master/API.md#getfilehash)
+  - [getDirectory(hash)](https://github.com/orbitdb/orbit-core/blob/master/API.md#getdirectoryhash)
+
 ## Development
 
 ### Install Dependencies
@@ -91,3 +115,7 @@ npm run build
 Library (ES5 for older browsers and Node.js) will be located in `lib/`.
 
 Distributable (ES5 minified for browsers) will be located in `dist/`.
+
+## License
+
+[MIT](LICENSE)
