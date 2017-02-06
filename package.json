@@ -1,6 +1,6 @@
 {
   "name": "orbit_",
-  "version": "0.1.0-beta.14",
+  "version": "0.1.0-beta.15",
   "description": "Orbit - Communication System on IPFS",
   "main": "src/Orbit.js",
   "dependencies": {
@@ -32,10 +32,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/haadcode/orbit-core.git"
+    "url": "https://github.com/orbitdb/orbit-core.git"
   },
   "bugs": {
-    "url": "https://github.com/haadcode/orbit/issues"
+    "url": "https://github.com/orbitdb/orbit-core/issues"
   },
   "readme": "README.md",
   "author": "Haad",
