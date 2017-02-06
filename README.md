@@ -1,13 +1,21 @@
 # orbit-core
 
+[![npm version](https://badge.fury.io/js/orbit_.svg)](https://badge.fury.io/js/orbit-db)
+[![CircleCI Status](https://circleci.com/gh/haadcode/orbit-core.svg?style=shield)](https://circleci.com/gh/haadcode/orbit-db)
+[![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
+[![](https://img.shields.io/badge/freenode-%23ipfs-blue.svg?style=flat-square)](http://webchat.freenode.net/?channels=%23ipfs)
+[![Project Status](https://badge.waffle.io/haadcode/orbit.svg?label=In%20Progress&title=Roadmap)](https://waffle.io/haadcode/orbit)
+
 >  Communication protocol on IPFS
 
-**WIP module for Orbit**
+Orbit is a serverless, distributed, p2p communication library and protocol that enables feed-based information sharing, such as real-time chat, in the [IPFS](https://ipfs.io) peer-to-peer network.
 
-Use for:
-- Chat applications
-- Data pipelines
-- CLI clients
+This repository is the core library of Orbit. This library is intended to be used in your Node.js or Browser applications.
+
+Used in the various Orbit projects:
+- [orbit-web](https://github.com/orbitdb/orbit-web) - Orbit browser app
+- [orbit-electron](https://github.com/orbitdb/orbit-electron) - Orbit desktop app
+- [orbit-textui](https://github.com/orbitdb/orbit-textui) - Orbit terminal client
 
 ## Usage
 
@@ -70,16 +78,16 @@ cd orbit-core/
 npm install
 ```
 
+### Run Tests
+```
+npm test
+```
+
 ### Build Library and Distributables
 ```
 npm run build
 ```
 
-Library (ES5 for Node.js) will be located in `lib/`.
+Library (ES5 for older browsers and Node.js) will be located in `lib/`.
 
 Distributable (ES5 minified for browsers) will be located in `dist/`.
-
-### Run Test
-```
-npm test
-```
