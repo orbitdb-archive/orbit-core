@@ -52,16 +52,8 @@ orbit.events.on('joined', (channel) => {
 })
 
 // Listen for new messages
-orbit.events.on('message', (channel, message) => {
-  // Get the actual content of the message
-  orbit.getPost(message.payload.value)
-    .then((post) => {
-      // Get the user info
-      orbit.getUser(post.meta.from)
-        .then((user) => {
-          console.log(`[${post.meta.ts}] < ${user.name}> ${post.content}`)
-        })
-    })
+orbit.events.on('message', (channel, post) => {
+  console.log(`[${post.meta.ts}] < ${post.meta.from.name}> ${post.content}`)
 })
 
 // Connect to Orbit network
