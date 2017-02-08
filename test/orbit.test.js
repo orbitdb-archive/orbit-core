@@ -4,7 +4,7 @@ const fs = require('fs')
 const rmrf = require('rimraf')
 const path = require('path')
 const assert = require('assert')
-const Promise = require('bluebird')
+const mapSeries = require('../src/promise-map-series')
 const Post = require('ipfs-post')
 const IpfsNodeDaemon = require('ipfs-daemon/src/ipfs-node-daemon')
 const IpfsNativeDaemon = require('ipfs-daemon/src/ipfs-native-daemon')
@@ -23,6 +23,7 @@ const daemons = require('./daemons.conf.js')
 const defaultIpfsDirectory = './ipfs'
 
 // Orbit
+const defaultOrbitDirectory = path.join('./', '/orbit')
 const username = 'testrunner'
 let userId = 'QmXWWRTZzygRCnWP8sBcTuygreYBTaQR73zVpZvyxeuUqA'
 
@@ -35,8 +36,10 @@ const hasIpfsApiWithPubsub = (ipfs) => {
 
 let ipfs, ipfsDaemon, isJsIpfs
 
-// [IpfsNodeDaemon, IpfsNativeDaemon].forEach((IpfsDaemon) => {
-[IpfsNodeDaemon].forEach((IpfsDaemon) => {
+// [IpfsNodeDaemon].forEach((IpfsDaemon) => {
+// [IpfsNativeDaemon].forEach((IpfsDaemon) => {
+// [IpfsNativeDaemon, IpfsNodeDaemon].forEach((IpfsDaemon) => {
+[IpfsNodeDaemon, IpfsNativeDaemon].forEach((IpfsDaemon) => {
 
   describe('Orbit', function() {
     this.timeout(60000)
@@ -45,20 +48,24 @@ let ipfs, ipfsDaemon, isJsIpfs
     let channel = 'orbit-tests'
 
     before(function (done) {
-      rmrf.sync(defaultIpfsDirectory)
+      rmrf.sync(defaultOrbitDirectory)
       rmrf.sync(daemons.daemon1.IpfsDataDir)
-      ipfs = new IpfsDaemon()
+      ipfs = new IpfsDaemon(daemons.daemon1)
       ipfs.on('error', done)
       ipfs.on('ready', () => {
         isJsIpfs = ipfs.constructor.name !== 'IpfsNativeDaemon'
         assert.equal(hasIpfsApiWithPubsub(ipfs), true)
-        done()        
+        done()
       })
     })
 
     beforeEach(function (done) {
+      rmrf.sync('./orbit-db')
       if(orbit) orbit.disconnect()
-      orbit = new Orbit(ipfs, { keystorePath: keystorePath })
+      orbit = new Orbit(ipfs, { 
+        keystorePath: keystorePath, 
+        cachePath: './orbit' 
+      })
       done()
     })
 
@@ -66,7 +73,8 @@ let ipfs, ipfsDaemon, isJsIpfs
       if(orbit) orbit.disconnect()
       orbit = null
       ipfs.stop()
-      rmrf.sync(defaultIpfsDirectory)
+      rmrf.sync(daemons.daemon1.IpfsDataDir)
+      rmrf.sync(defaultOrbitDirectory)
       done()
     })
 
@@ -93,7 +101,7 @@ let ipfs, ipfsDaemon, isJsIpfs
         orbit.connect(username)
           .then((res) => {
             assert.notEqual(orbit._orbitdb, null)
-            assert.equal(orbit._orbitdb.events.listenerCount('data'), 1)
+            // assert.equal(orbit._orbitdb.events.listenerCount('data'), 1)
             orbit.disconnect()
             done()
           })
@@ -160,9 +168,9 @@ let ipfs, ipfsDaemon, isJsIpfs
           .catch(done)
       })
 
-      // afterEach(() => {
-      //   orbit.disconnect()
-      // })
+      afterEach(() => {
+        orbit.disconnect()
+      })
 
       it('joins a new channel', () => {
         return orbit.join(channel).then((result) => {
@@ -382,15 +390,15 @@ let ipfs, ipfsDaemon, isJsIpfs
           .then(() => orbit.get(channel))
           .then((messages) => {
             assert.equal(messages.length, 1)
-            assert.notEqual(messages[0].hash, null)
-            assert.equal(messages[0].hash.startsWith('Qm'), true)
-            assert.equal(messages[0].content, content)
-            assert.equal(messages[0].content, message.Post.content)
-            assert.notEqual(messages[0].sig, null)
-            assert.notEqual(messages[0].signKey, null)
-            assert.notEqual(messages[0].meta, null)
-            assert.equal(messages[0].meta.ts, message.Post.meta.ts)
-            assert.equal(messages[0].meta.from.id, message.Post.meta.from)
+            assert.notEqual(messages[0].Hash, undefined)
+            assert.equal(messages[0].Hash.startsWith('Qm'), true)
+            assert.equal(messages[0].Post.content, content)
+            assert.equal(messages[0].Post.content, message.Post.content)
+            assert.notEqual(messages[0].Post.sig, null)
+            assert.notEqual(messages[0].Post.signKey, null)
+            assert.notEqual(messages[0].Post.meta, null)
+            assert.equal(messages[0].Post.meta.ts, message.Post.meta.ts)
+            assert.equal(messages[0].Post.meta.from.id, message.Post.meta.from.id)
             done()
           })
           .catch(done)
@@ -407,7 +415,7 @@ let ipfs, ipfsDaemon, isJsIpfs
             assert.equal(Object.keys(message.Post.meta).length, 4)
             assert.equal(message.Post.meta.type, "text")
             assert.equal(message.Post.meta.size, 15)
-            assert.equal(message.Post.meta.from, userId)
+            assert.equal(message.Post.meta.from.id, userId)
             assert.notEqual(message.Post.meta.ts, null)
             done()
           })
@@ -418,13 +426,12 @@ let ipfs, ipfsDaemon, isJsIpfs
         const content = 'hello' + new Date().getTime()
         orbit.join(channel)
           .then(() => orbit.send(channel, content))
-          .then((message) => orbit.getPost(message.Hash))
           .then((data) => {
-            assert.equal(data.content, content)
-            assert.equal(data.meta.type, "text")
-            assert.equal(data.meta.size, 15)
-            assert.notEqual(data.meta.ts, null)
-            assert.equal(data.meta.from.id, userId)
+            assert.equal(data.Post.content, content)
+            assert.equal(data.Post.meta.type, "text")
+            assert.equal(data.Post.meta.size, 15)
+            assert.notEqual(data.Post.meta.ts, null)
+            assert.equal(data.Post.meta.from.id, userId)
             done()
           })
           .catch(done)
@@ -476,7 +483,7 @@ let ipfs, ipfsDaemon, isJsIpfs
     describe('get', function() {
       it('returns the latest message', (done) => {
         const ts = new Date().getTime()
-        const content = 'hello' + ts
+        const content = 'hi' + ts
         let message
         const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
         orbitNoCache.connect(username)
@@ -486,22 +493,22 @@ let ipfs, ipfsDaemon, isJsIpfs
           .then(() => orbitNoCache.get(channel, null, null, 10))
           .then((messages) => {
             assert.equal(messages.length, 1)
-            assert.notEqual(messages[0].hash, null)
-            assert.equal(messages[0].hash.startsWith('Qm'), true)
-            assert.equal(messages[0].content, content)
-            assert.equal(messages[0].content, message.Post.content)
-            assert.notEqual(messages[0].sig, null)
-            assert.notEqual(messages[0].signKey, null)
-            assert.notEqual(messages[0].meta, null)
-            assert.equal(messages[0].meta.ts, message.Post.meta.ts)
-            assert.equal(messages[0].meta.from.id, message.Post.meta.from)
+            assert.notEqual(messages[0].Hash, null)
+            assert.equal(messages[0].Hash.startsWith('Qm'), true)
+            assert.equal(messages[0].Post.content, content)
+            assert.equal(messages[0].Post.content, message.Post.content)
+            assert.notEqual(messages[0].Post.sig, null)
+            assert.notEqual(messages[0].Post.signKey, null)
+            assert.notEqual(messages[0].Post.meta, null)
+            assert.equal(messages[0].Post.meta.ts, message.Post.meta.ts)
+            assert.equal(messages[0].Post.meta.from.id, message.Post.meta.from.id)
             // assert.equal(messages[0].payload.op, 'ADD')
             // assert.equal(messages[0].payload.value, message.Hash)
             // assert.notEqual(messages[0].payload.meta, null)
             // assert.notEqual(messages[0].payload.meta.ts, null)
             // assert.equal(messages[0].hash.startsWith('Qm'), true)
             // assert.equal(messages[0].next.length, 0)
-            orbitNoCache.disconnect()
+            // orbitNoCache.disconnect()
             done()
           })
           .catch(done)
@@ -516,19 +523,19 @@ let ipfs, ipfsDaemon, isJsIpfs
         orbitNoCache.connect(username)
           .then(() => orbitNoCache.join(channel2))
           .then(() => {
-            return Promise.mapSeries([1, 2, 3, 4, 5], (i) => orbitNoCache.send(channel2, content + i), { concurrency: 1 })
+            return mapSeries([1, 2, 3, 4, 5], (i) => orbitNoCache.send(channel2, content + i), { concurrency: 1 })
           })
           .then((res) => result = res)
           .then(() => orbitNoCache.get(channel2, null, null, -1))
           .then((messages) => {
             assert.equal(messages.length, 5)
             messages.forEach((msg, index) => {
-              assert.notEqual(msg.hash, null)
-              assert.equal(msg.hash.startsWith('Qm'), true)
-              assert.equal(msg.content, content + (index + 1))
-              assert.notEqual(msg.sig, null)
-              assert.notEqual(msg.signKey, null)
-              assert.notEqual(msg.meta, null)
+              assert.notEqual(msg.Hash, null)
+              assert.equal(msg.Hash.startsWith('Qm'), true)
+              assert.equal(msg.Post.content, content + (index + 1))
+              assert.notEqual(msg.Post.sig, null)
+              assert.notEqual(msg.Post.signKey, null)
+              assert.notEqual(msg.Post.meta, null)
               orbitNoCache.disconnect()
             })
             done()
@@ -544,58 +551,6 @@ let ipfs, ipfsDaemon, isJsIpfs
           .catch((e) => {
             assert.equal(e, `Haven't joined #${channel}`)
             orbitNoCache.disconnect()
-            done()
-          })
-      })
-    })
-
-    describe('getPost', function() {
-      const content = 'hello' + new Date().getTime()
-      let message
-
-      beforeEach((done) => {
-        orbit.connect(username)
-          .then((res) => orbit.join(channel))
-          .then(() => orbit.send(channel, content))
-          .then((res) => message = res)
-          .then(() => done())
-          .catch(done)
-      })
-
-      afterEach(() => {
-        orbit.disconnect()
-      })
-
-      it('returns a Post', (done) => {
-        orbit.join(channel)
-          .then(() => orbit.getPost(message.Hash))
-          .then((data) => {
-            assert.equal(data.content, content)
-            assert.equal(data.meta.type, "text")
-            assert.equal(data.meta.size, 15)
-            assert.notEqual(data.meta.ts, null)
-            assert.equal(data.meta.from.id, userId)
-            done()
-          })
-          .catch(done)
-      })
-
-      it.skip('throws an error when trying to get a Post with invalid hash', (done) => {
-        orbit.getPost("Qm...Foo")
-          .catch((e) => {
-            if (isJsIpfs)
-              assert.equal(e.message, "Invalid Key")
-            else
-              assert.equal(e.message, "invalid ipfs ref path")
-            done()
-          })
-      })
-
-      // Enable this test when ipfs can timeout
-      it.skip('throws an error when Post doesn\'t exist', (done) => {
-        orbit.getPost("QmQMhG5f8PPPaxYWhFPZxteEZfCMpCv9k4WmRd8VdTN7p2")
-          .catch((e) => {
-            assert.equal(e.message, "invalid ipfs ref path")
             done()
           })
       })
@@ -630,7 +585,7 @@ let ipfs, ipfsDaemon, isJsIpfs
             assert.equal(res.Post.size, -1)
             assert.equal(Object.keys(res.Post.meta).length, 4)
             assert.equal(res.Post.meta.size, 15)
-            assert.equal(res.Post.meta.from, userId)
+            assert.equal(res.Post.meta.from.id, userId)
             assert.notEqual(res.Post.meta.ts, null)
             done()
           })
@@ -656,7 +611,7 @@ let ipfs, ipfsDaemon, isJsIpfs
             // assert.equal(res.Post.size === 409363 || res.Post.size === 409449, true)
             assert.equal(Object.keys(res.Post.meta).length, 4)
             // assert.equal(res.Post.meta.size === 409363 || res.Post.meta.size === 409449, true)
-            assert.equal(res.Post.meta.from, userId)
+            assert.equal(res.Post.meta.from.id, userId)
             assert.notEqual(res.Post.meta.ts, null)
             done()
           })
@@ -785,21 +740,23 @@ let ipfs, ipfsDaemon, isJsIpfs
       beforeEach((done) => {
         orbit.events.on('joined', () => done())
         orbit.connect(username)
-          .then(() => orbit.join(channel))
+          .then(() => orbit.join(channel + '.events'))
           .catch(done)
       })
 
-      afterEach(() => orbit.disconnect())
+      afterEach(() => {
+        orbit.disconnect()
+      })
 
       it('emits \'message\'', (done) => {
         orbit.events.on('message', (channelName, message) => {
-          assert.equal(channelName, channel)
+          assert.equal(channelName, channel + '.events')
           assert.notEqual(message, undefined)
           assert.equal(message.content, 'hello')
           assert.equal(message.hash.startsWith('Qm'), true)
           done()
         })
-        orbit.send(channel, 'hello')
+        orbit.send(channel + '.events', 'hello')
       })
     })
 

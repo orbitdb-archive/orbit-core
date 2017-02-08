@@ -2,3 +2,6 @@ node_modules/
 *sublime*
 dist/*.map
 orbit/
+
+# test data
+orbit-db/

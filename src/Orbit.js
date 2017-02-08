@@ -1,6 +1,5 @@
 'use strict'
 
-const Promise = require('bluebird')
 const path = require('path')
 const EventEmitter = require('events').EventEmitter
 const OrbitDB = require('orbit-db')
@@ -9,7 +8,8 @@ const Post = require('ipfs-post')
 const Logger = require('logplease')
 const LRU = require('lru')
 const rmrf = require('rimraf')
-const OrbitUser= require('./orbit-user')
+// const mapSeries = require('./promise-map-series')
+const OrbitUser = require('./orbit-user')
 const IdentityProviders = require('./identity-providers')
 
 const logger = Logger.create("Orbit", { color: Logger.Colors.Green })
@@ -75,11 +75,11 @@ class Orbit {
 
     return IdentityProviders.authorizeUser(this._ipfs, credentials)
       .then((user) => this._user = user)
-      .then(() => new OrbitDB(this._ipfs, this._user.id))
+      .then(() => new OrbitDB(this._ipfs, this.user.id))
       // .then(() => OrbitDB.connect(host, this.user.identityProvider.id, null, this._ipfs))
       .then((orbitdb) => {
         this._orbitdb = orbitdb
-        this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
+        // this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
         this._startPollingForPeers() // Get peers from libp2p and update the local peers array
         return
       })
@@ -115,7 +115,8 @@ class Orbit {
     // console.log(this._user)
     const dbOptions = {
       cachePath: this._options.cachePath,
-      maxHistory: this._options.maxHistory
+      maxHistory: this._options.maxHistory,
+      syncHistory: true,
     }
 
     this._channels[channel] = {
@@ -125,15 +126,19 @@ class Orbit {
     }
 
     // Subscribe to updates in the database
-    this._channels[channel].feed.events.on('history', this._handleHistory.bind(this))
-
+    // this._channels[channel].feed.events.on('history', this._handleNewMessages.bind(this))
+    this._channels[channel].feed.events.on('write', this._handleMessage.bind(this))
+    this._channels[channel].feed.events.on('synced', this._handleNewMessages.bind(this))
+    // this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
+    const historyAmount = 1
+    this._channels[channel].feed.load(historyAmount)
     this.events.emit('joined', channel)
     return Promise.resolve(true)
   }
 
   leave(channel) {
     if(this._channels[channel]) {
-      this._channels[channel].feed.close()
+      this._orbitdb.close(channel)
       delete this._channels[channel]
       logger.debug("Left channel #" + channel)
     }
@@ -146,13 +151,16 @@ class Orbit {
 
     logger.debug(`Send message to #${channel}: ${message}`)
 
-    const data = {
-      content: message,
+    let data = {
+      content: message.substring(0, 2048),
       replyto: replyToHash || null,
-      from: this.user.id
+      from: this.user
     }
 
-    return this._getChannelFeed(channel)
+    // return this._getChannelFeed(channel)
+    return this.getUser(this.user.id)
+      .then((user) => data.from = user)
+      .then(() => this._getChannelFeed(channel))
       .then((feed) => this._postMessage(feed, Post.Types.Message, data, this._user._keys))
   }
 
@@ -167,9 +175,25 @@ class Orbit {
 
     return this._getChannelFeed(channel)
       .then((feed) => {
-        const messages = feed.iterator(options).collect()
-        return Promise.map(messages, (e) => this.getPost(e.payload.value, true), { concurrency: 1 })
-          .catch((e) => logger.error(e))
+        const messages = feed.iterator(options)
+          .collect()
+          .map((e) => {
+            let value = JSON.parse(e.payload.value)
+            // value.Post.hash = value.Hash
+            let obj = Object.assign({}, e)
+            obj = Object.assign(obj, { payload: { value: value } })
+            // trim content length
+            if (obj.payload.value.Post.content) {
+              const maxLength = 1024
+              obj.payload.value.Post.content = obj.payload.value.Post.content.substring(0, maxLength)
+            }
+            value.Entry = e
+            // return obj.payload.value.Post
+            return value
+          })
+        return Promise.resolve(messages)
+        // return mapSeries(messages, (e) => this.getPost(e.payload.value, true))
+        //   .catch((e) => logger.error(e))
       })
   }
 
@@ -267,8 +291,12 @@ class Orbit {
     else
       addToIpfs = () => addToIpfsGo(this._ipfs, name, source.filename)
 
+    let userProfile
+
     return this._getChannelFeed(channel)
       .then((res) => feed = res)
+      .then(() => this.getUser(this.user.id))
+      .then((user) => userProfile = user)
       .then(() => addToIpfs())
       .then((result) => {
         logger.info("Added file '" + source.filename + "' as ", result)
@@ -278,7 +306,7 @@ class Orbit {
           name: name,
           hash: result.Hash,
           size: size,
-          from: this.user.id,
+          from: userProfile,
           meta: source.meta || {}
         }
         return this._postMessage(feed, type, data, this._user._keys)
@@ -319,13 +347,26 @@ class Orbit {
     }
   }
 
+  loadMoreHistory(channel, amount, fromEntries) {
+    if (fromEntries) {
+      return this._getChannelFeed(channel)
+        .then((feed) => feed.loadMoreFrom(amount, fromEntries))
+        .catch((err) => console.error(err))      
+    } else {
+      return this._getChannelFeed(channel)
+        .then((feed) => feed.loadMore(amount))
+        .catch((err) => console.error(err))
+    }
+  }
+
   /* Private methods */
 
   _postMessage(feed, postType, data, signKey) {
     let post
     return Post.create(this._ipfs, postType, data, signKey)
       .then((res) => post = res)
-      .then(() => feed.add(post.Hash))
+      // .then(() => feed.add(post.Hash))
+      .then(() => feed.add(JSON.stringify(post)))
       .then(() => post)
   }
 
@@ -341,45 +382,38 @@ class Orbit {
   }
 
   // TODO: tests for everything below
-  _handleMessage(channel, message) {
-    if(this._channels[channel]) {
-      logger.debug("New message in #", channel, "\n" + JSON.stringify(message, null, 2))
-      this.getPost(message.payload.value, true)
-        .then((post) => {
-          // post.hash = post.hash || message.payload.value
-          this.events.emit('message', channel, post)
-        })
-        .catch((err) => logger.error(err))
-    } else {
-      logger.warn("Received a message on a channel we're not subscribed to #" + channel)
-    }
+  _handleMessage(channel, logHash, message) {
+    logger.debug("New message in #", channel, "\n" + JSON.stringify(message, null, 2))
+    const value = JSON.parse(message.payload.value)
+    value.Post.hash = value.Hash
+    let obj = Object.assign({}, message)
+    obj = Object.assign(obj, { payload: { value: value } })
+    this.events.emit('message', channel, obj.payload.value.Post)
+
+    // this.getPost(message.payload.value, true)
+    //   .then((post) => {
+    //     // post.hash = post.hash || message.payload.value
+    //     this.events.emit('message', channel, post)
+    //   })
+    //   .catch((err) => logger.error(err))
   }
 
-  _handleHistory(channel, messages) {
+  _handleNewMessages(channel, logHash) {
     if(this._channels[channel]) {
-      logger.debug("History in #", channel, messages.length)
-      Promise.map(messages, (e) => {
-        return this.getPost(e.payload.value, true)
-          .then((post) => {
-            // post.hash = post.hash || e.payload.value
-            this.events.emit('message', channel, post)
-          })
-      }, { concurrency: 1 })
-      .then((res) => this.events.emit('history', channel, res))
-      .catch((e) => logger.error(e))
-    } else {
-      logger.warn("Received a message on a channel we're not subscribed to #" + channel)
+      this.events.emit('synced', channel)
     }
   }
 
   _startPollingForPeers() {
     if(!this._pollPeersTimer) {
       this._pollPeersTimer = setInterval(() => {
-        this._updateSwarmPeers().then((peers) => {
-          this._peers = peers || []
-          // TODO: get unique (new) peers and emit 'peer' for each instead of all at once
-          this.events.emit('peers', this._peers)
-        })
+        this._updateSwarmPeers()
+          .then((peers) => {
+            this._peers = peers || []
+            // TODO: get unique (new) peers and emit 'peer' for each instead of all at once
+            this.events.emit('peers', this._peers)
+          })
+          .catch((e) => console.error(e))
       }, 3000)
     }
   }
