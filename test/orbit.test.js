@@ -35,7 +35,8 @@ const hasIpfsApiWithPubsub = (ipfs) => {
 
 let ipfs, ipfsDaemon, isJsIpfs
 
-[IpfsNativeDaemon, IpfsNodeDaemon].forEach((IpfsDaemon) => {
+// [IpfsNodeDaemon, IpfsNativeDaemon].forEach((IpfsDaemon) => {
+[IpfsNodeDaemon].forEach((IpfsDaemon) => {
 
   describe('Orbit', function() {
     this.timeout(60000)
