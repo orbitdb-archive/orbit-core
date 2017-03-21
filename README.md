@@ -1,7 +1,7 @@
 # orbit-core
 
-[![npm version](https://badge.fury.io/js/orbit_.svg)](https://badge.fury.io/js/orbit-db)
-[![CircleCI Status](https://circleci.com/gh/haadcode/orbit-core.svg?style=shield)](https://circleci.com/gh/haadcode/orbit-db)
+[![npm version](https://badge.fury.io/js/orbit_.svg)](https://badge.fury.io/js/orbit_)
+[![CircleCI Status](https://circleci.com/gh/orbitdb/orbit-core.svg?style=shield)](https://circleci.com/gh/orbitdb/orbit-core)
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 [![](https://img.shields.io/badge/freenode-%23ipfs-blue.svg?style=flat-square)](http://webchat.freenode.net/?channels=%23ipfs)
 [![Project Status](https://badge.waffle.io/haadcode/orbit.svg?label=In%20Progress&title=Roadmap)](https://waffle.io/haadcode/orbit)
