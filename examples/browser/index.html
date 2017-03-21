@@ -4,6 +4,8 @@
   </head>
   <body>
     <h1 id="channel">Orbit</h1>
+    <div id="peersCount"></div>
+    <br/>
     <div id="messages">Loading...</div>
     <br/>
     <b><label id="username" for="message"></label></b>
@@ -34,12 +36,13 @@
       const messageField = document.getElementById("message")
       const sendButton = document.getElementById("send")
       const sendGreetingButton = document.getElementById("send2")
+      const peersElm = document.getElementById("peersCount")
 
       let username = "Anonymous" + (new Date().getTime()).toString().slice(-4)
       const channel  = 'orbit-browser-example'      
       const ipfs = new IpfsDaemon({
-        // dev server: webrtc-star-signalling.cloud.ipfs.team
-        SignalServer: '188.166.203.82:20000',
+        IpfsDataDir: '/orbit-browser-example',
+        SignalServer: 'star-signal.cloud.ipfs.team', // IPFS dev server
       })
 
       function handleError(e) {
@@ -83,19 +86,20 @@
 
           orbit = new Orbit(ipfs, options)
 
-          // Handle new messages
-          orbit.events.on('message', (channel, message) => {
-            messagesElement.innerHTML += `${formatTimestamp(message.meta.ts)} < ${message.meta.from.name}> ${message.content}</br>`
-          })
-
-          orbit.events.on('history', (channel, messages) => {
+          const updateMessages = () => {
             orbit.get(channel, null, null, 10)
-              .then((posts) => {
-                const history = posts.sort((a, b) => a.meta.ts > b.meta.ts)
-                  .map((post) => `${formatTimestamp(post.meta.ts)} < ${post.meta.from.name}> ${post.content}<br/>`).join("\n")
+              .then((messages) => {
+                const history = messages.sort((a, b) => a.Post.meta.ts > b.Post.meta.ts)
+                  .map((message) => `${formatTimestamp(message.Post.meta.ts)} < ${message.Post.meta.from.name}> ${message.Post.content}<br/>`).join("\n")
                 messagesElement.innerHTML = history
                 usernameElement.innerHTML = username
-              })
+              })            
+          }
+          // Handle new messages
+          orbit.events.on('message', (channel, message) => updateMessages())
+          orbit.events.on('synced', (channel, messages) => {
+            console.log("Synced")
+            updateMessages()
           })
 
           // Connect        
@@ -109,13 +113,20 @@
               channelNameElement.innerHTML = "#" + channel
               console.log(`Joined #${channel}`)    
 
+              setInterval(() => {
+                ipfs.pubsub.peers(channel)
+                  .then((peers) => peersElm.innerHTML = "Peers: " + (peers ? peers.length : 0))
+              }, 1000)
+
               // Get the channel's database and wait for the history to be loaded
               const feed = orbit.channels[channel].feed
 
               feed.events.on('ready', (name) => {
                 messagesElement.innerHTML = ''
                 // Send a new message to the channel
-                orbit.send(channel, `/me has joined ${channel}`)
+                setTimeout(() => {
+                  orbit.send(channel, `/me has joined ${channel}`)
+                }, 2000)
               })
 
               sendButton.addEventListener('click', send)
