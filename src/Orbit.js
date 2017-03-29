@@ -178,19 +178,25 @@ class Orbit {
         const messages = feed.iterator(options)
           .collect()
           .map((e) => {
-            let value = JSON.parse(e.payload.value)
-            // value.Post.hash = value.Hash
-            let obj = Object.assign({}, e)
-            obj = Object.assign(obj, { payload: { value: value } })
-            // trim content length
-            if (obj.payload.value.Post.content) {
-              const maxLength = 1024
-              obj.payload.value.Post.content = obj.payload.value.Post.content.substring(0, maxLength)
+            let value 
+            try {
+              value = JSON.parse(e.payload.value)
+              // value.Post.hash = value.Hash
+              let obj = Object.assign({}, e)
+              obj = Object.assign(obj, { payload: { value: value } })
+              // trim content length
+              if (obj.payload.value.Post.content) {
+                const maxLength = 1024
+                obj.payload.value.Post.content = obj.payload.value.Post.content.substring(0, maxLength)
+              }
+              value.Entry = e
+              // return obj.payload.value.Post
+            } catch(err) {
+              console.warn("Failed to parse payload from message:", e)
             }
-            value.Entry = e
-            // return obj.payload.value.Post
             return value
           })
+          .filter(e => e !== undefined)
         return Promise.resolve(messages)
         // return mapSeries(messages, (e) => this.getPost(e.payload.value, true))
         //   .catch((e) => logger.error(e))
