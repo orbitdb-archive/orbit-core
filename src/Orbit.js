@@ -152,7 +152,8 @@ class Orbit {
     logger.debug(`Send message to #${channel}: ${message}`)
 
     let data = {
-      content: message.substring(0, 2048),
+      // TODO: Question for Haad, why are you truncating messages?
+      content: new Buffer(message.substring(0, 2048)),
       replyto: replyToHash || null,
       from: this.user
     }
