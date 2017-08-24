@@ -3,31 +3,27 @@
   "version": "0.1.0",
   "description": "Orbit - Communication System on IPFS",
   "main": "src/Orbit.js",
-  "browser": {
-    "fs-pull-blob-store": "idb-pull-blob-store"
-  },
   "dependencies": {
     "ipfs-post": "~0.1.0-beta.1",
-    "logplease": "^1.2.9",
+    "logplease": "^1.2.14",
     "lru": "~3.1.0",
-    "orbit-crypto": "~0.1.0-beta.1",
-    "orbit-db": "~0.17.1"
+    "orbit-crypto": "~0.1.0-beta.2",
+    "orbit-db": "~0.17.3"
   },
   "devDependencies": {
-    "babel-core": "^6.14.0",
-    "babel-loader": "^6.2.5",
-    "babel-plugin-syntax-flow": "^6.13.0",
-    "babel-plugin-transform-flow-strip-types": "^6.14.0",
-    "babel-preset-es2015": "^6.14.0",
-    "bluebird": "^3.4.6",
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.2",
+    "babel-plugin-syntax-flow": "^6.18.0",
+    "babel-plugin-transform-flow-strip-types": "^6.22.0",
+    "babel-preset-es2015": "^6.24.1",
+    "bluebird": "^3.5.0",
     "fs-pull-blob-store": "^0.4.1",
     "idb-pull-blob-store": "^0.5.1",
-    "ipfs-daemon": "^0.3.0-beta.24",
-    "ipfs-test-apis": "^0.1.0-beta.4",
-    "json-loader": "^0.5.4",
-    "mocha": "^2.5.3",
-    "rimraf": "^2.5.4",
-    "webpack": "^2.1.0-beta.27"
+    "ipfs-test-apis": "^0.1.0-beta.5",
+    "json-loader": "^0.5.7",
+    "mocha": "^3.5.0",
+    "rimraf": "^2.6.1",
+    "webpack": "^3.5.5"
   },
   "scripts": {
     "test": "mocha",
