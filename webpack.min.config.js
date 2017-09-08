@@ -1,6 +1,7 @@
 'use strict'
 
 const webpack = require('webpack')
+const Uglify = require('uglifyjs-webpack-plugin')
 const path = require('path')
 
 const babel = {
@@ -23,19 +24,10 @@ module.exports = {
     console: false,
     Buffer: true
   },
-  stats: {
-    colors: true,
-    reasons: false
-  },
   plugins: [
     new webpack.optimize.AggressiveMergingPlugin(),
     new webpack.NoErrorsPlugin(),
-    new webpack.optimize.UglifyJsPlugin({
-      mangle: false,
-      compress: {
-        warnings: false
-      }
-    }),
+    new Uglify(),
   ],
   module: {
     loaders: [{
@@ -79,11 +71,5 @@ module.exports = {
   },
   externals: {
     fs: '{}',
-    // du: '{}',
-    // net: '{}',
-    // tls: '{}',
-    // console: '{}',
-    // 'require-dir': '{}',
-    // mkdirp: '{}'
   },
 }

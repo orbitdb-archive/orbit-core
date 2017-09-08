@@ -19,7 +19,7 @@ const getAppPath = () => process.type && process.env.ENV !== "dev" ? process.res
 
 const defaultOptions = {
   keystorePath: path.join(getAppPath(), "/orbit/keys"), // path where to keep generates keys
-  cachePath: path.join(getAppPath(), "/orbit/orbit-db"), // path to orbit-db cache file
+  cachePath: path.join(getAppPath(), "/orbit/orbitdb"), // path to orbit-db cache file
   maxHistory: 64 // how many messages to retrieve from history on joining a channel
 }
 
@@ -47,7 +47,7 @@ class Orbit {
   }
 
   get network() {
-    return this._orbitdb ? this._orbitdb.network : null
+    return this._orbitdb ? 'DEPRECATED' : null
   }
 
   get channels() {
@@ -84,7 +84,7 @@ class Orbit {
         return
       })
       .then(() => {
-        logger.info(`Connected to '${this._orbitdb.network.name}' as '${this.user.name}`)
+        logger.info(`Connected to '${this._orbitdb.path}' as '${this.user.name}`)
         this.events.emit('connected', this.network, this.user)
         return this
       })
@@ -114,9 +114,9 @@ class Orbit {
 
     // console.log(this._user)
     const dbOptions = {
-      cachePath: this._options.cachePath,
+      path: this._options.cachePath,
       maxHistory: this._options.maxHistory,
-      syncHistory: true,
+      // syncHistory: true,
     }
 
     this._channels[channel] = {
