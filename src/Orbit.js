@@ -17,10 +17,12 @@ require('logplease').setLogLevel('ERROR')
 
 const getAppPath = () => process.type && process.env.ENV !== "dev" ? process.resourcesPath + "/app/" : process.cwd()
 
+const networkHash = 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L'
+
 const defaultOptions = {
   keystorePath: path.join(getAppPath(), "/orbit/keys"), // path where to keep generates keys
   cachePath: path.join(getAppPath(), "/orbit/orbitdb"), // path to orbit-db cache file
-  maxHistory: 64 // how many messages to retrieve from history on joining a channel
+  maxHistory: -1 // how many messages to retrieve from history on joining a channel
 }
 
 let signKey
@@ -28,6 +30,7 @@ let signKey
 class Orbit {
   constructor(ipfs, options = {}) {
     this.events = new EventEmitter()
+    this._network = null
     this._ipfs = ipfs
     this._orbitdb = null
     this._user = null
@@ -47,7 +50,7 @@ class Orbit {
   }
 
   get network() {
-    return this._orbitdb ? 'DEPRECATED' : null
+    return this._network
   }
 
   get channels() {
@@ -58,7 +61,19 @@ class Orbit {
     return this._peers
   }
 
+  _getChannelPath (channel) {
+    const orbitChannel = path.join(networkHash, '/orbit', channel)
+    const addr = OrbitDB.parseAddress(orbitChannel)
+    // console.log("channel:", addr)
+    return addr
+  }
   /* Public methods */
+
+  getChannel (channel) {
+    // channel = path.join('/QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L', '/orbit', channel)
+    const c = this._getChannelPath(channel)
+    return this._channels[c]
+  }
 
   connect(credentials = {}) {
     logger.debug("Load cache from:", this._options.cachePath)
@@ -79,8 +94,12 @@ class Orbit {
       // .then(() => OrbitDB.connect(host, this.user.identityProvider.id, null, this._ipfs))
       .then((orbitdb) => {
         this._orbitdb = orbitdb
-        // this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
-        this._startPollingForPeers() // Get peers from libp2p and update the local peers array
+        // NOTE! 
+        // FIXME TODO
+        // Hard-coded network information for now
+        this._network = networkHash
+        // Get peers from libp2p and update the local peers array
+        this._startPollingForPeers()
         return
       })
       .then(() => {
@@ -93,23 +112,28 @@ class Orbit {
 
   disconnect() {
     if(this._orbitdb) {
-      logger.warn(`Disconnected from '${this.network.name}'`)
+      logger.warn(`Disconnected from '${this.network}'`)
       this._orbitdb.disconnect()
       this._orbitdb = null
       this._user = null
       this._channels = {}
+      this._network = null
       if(this._pollPeersTimer) clearInterval(this._pollPeersTimer)
       this.events.emit('disconnected')
     }
   }
 
   join(channel) {
-    logger.debug(`Join #${channel}`)
-
     if(!channel || channel === '')
       return Promise.reject(`Channel not specified`)
 
-    if(this._channels[channel])
+    const c = this._getChannelPath(channel)
+
+    logger.debug(`Join #${c}`)
+
+    // console.log("#", c)
+
+    if(this._channels[c])
       return Promise.resolve(false)
 
     // console.log(this._user)
@@ -119,35 +143,47 @@ class Orbit {
       // syncHistory: true,
     }
 
-    this._channels[channel] = {
+    const db = this._orbitdb.eventlog(c, dbOptions)
+
+    this._channels[c] = {
       name: channel,
       password: null,
-      feed: this._orbitdb.eventlog(channel, dbOptions) // feed is the database instance
+      feed: db, // feed is the database instance
+      messages: db.iterator({ limit: -1 }).collect(), 
     }
 
     // Subscribe to updates in the database
     // this._channels[channel].feed.events.on('history', this._handleNewMessages.bind(this))
-    this._channels[channel].feed.events.on('write', this._handleMessage.bind(this))
-    this._channels[channel].feed.events.on('synced', this._handleNewMessages.bind(this))
+    this._channels[c].feed.events.on('write', this._handleMessage.bind(this))
+    this._channels[c].feed.events.on('synced', this._handleNewMessages.bind(this))
     // this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
     const historyAmount = 1
-    this._channels[channel].feed.load(historyAmount)
+    this._channels[c].feed.load(historyAmount)
     this.events.emit('joined', channel)
     return Promise.resolve(true)
   }
 
   leave(channel) {
-    if(this._channels[channel]) {
-      this._orbitdb.close(channel)
-      delete this._channels[channel]
+    const c = this._getChannelPath(channel)
+
+    if(this._channels[c]) {
+      this._channels[c].feed.close()
+      delete this._channels[c]
       logger.debug("Left channel #" + channel)
     }
     this.events.emit('left', channel)
   }
 
   send(channel, message, replyToHash) {
+    if(!channel || channel === '')
+      return Promise.reject(`Channel must be specified`)
+
     if(!message || message === '')
       return Promise.reject(`Can't send an empty message`)
+
+    if (!this.user) {
+      return Promise.reject(`Something went wrong: 'user' is undefined`)
+    }
 
     logger.debug(`Send message to #${channel}: ${message}`)
 
@@ -157,11 +193,14 @@ class Orbit {
       from: this.user
     }
 
-    // return this._getChannelFeed(channel)
     return this.getUser(this.user.id)
       .then((user) => data.from = user)
-      .then(() => this._getChannelFeed(channel))
-      .then((feed) => this._postMessage(feed, Post.Types.Message, data, this._user._keys))
+      .then(() => {
+        return this._getChannelFeed(channel)
+      })
+      .then((feed) => {
+        return this._postMessage(feed, Post.Types.Message, data, this._user._keys)
+      })
   }
 
   get(channel, lessThanHash = null, greaterThanHash = null, amount = 1) {
@@ -370,9 +409,12 @@ class Orbit {
   _postMessage(feed, postType, data, signKey) {
     let post
     return Post.create(this._ipfs, postType, data, signKey)
-      .then((res) => post = res)
-      // .then(() => feed.add(post.Hash))
-      .then(() => feed.add(JSON.stringify(post)))
+      .then((res) => {
+        post = res
+      })
+      .then(() => {
+        return feed.add(JSON.stringify(post))
+      })
       .then(() => post)
   }
 
@@ -380,8 +422,10 @@ class Orbit {
     if(!channel || channel === '')
       return Promise.reject(`Channel not specified`)
 
+    const c = this._getChannelPath(channel)
+
     return new Promise((resolve, reject) => {
-      const feed = this._channels[channel] && this._channels[channel].feed ? this._channels[channel].feed : null
+      const feed = this._channels[c] && this._channels[c].feed ? this._channels[c].feed : null
       if(!feed) reject(`Haven't joined #${channel}`)
       resolve(feed)
     })
@@ -389,12 +433,13 @@ class Orbit {
 
   // TODO: tests for everything below
   _handleMessage(channel, logHash, message) {
-    logger.debug("New message in #", channel, "\n" + JSON.stringify(message, null, 2))
+    const c = this._channels[channel]
+    logger.debug("New message in #", c.name, "\n" + JSON.stringify(message, null, 2))
     const value = JSON.parse(message.payload.value)
     value.Post.hash = value.Hash
     let obj = Object.assign({}, message)
     obj = Object.assign(obj, { payload: { value: value } })
-    this.events.emit('message', channel, obj.payload.value.Post)
+    this.events.emit('message', c.name, obj.payload.value.Post)
 
     // this.getPost(message.payload.value, true)
     //   .then((post) => {
@@ -404,10 +449,12 @@ class Orbit {
     //   .catch((err) => logger.error(err))
   }
 
-  _handleNewMessages(channel, logHash) {
-    if(this._channels[channel]) {
-      this.events.emit('synced', channel)
-    }
+  _handleNewMessages(dbPath) {
+    const channel = this._channels[dbPath]
+    // console.log("..", dbPath, channel)
+    // if(this._channels[channel]) {
+    this.events.emit('synced', channel.name)
+    // }
   }
 
   _startPollingForPeers() {
@@ -431,7 +478,11 @@ class Orbit {
         resolve(res)
       })
     })
-    .then((peers) => Object.keys(peers).map((e) => peers[e].addr.toString()))
+    .then((peers) => {
+      return Object.keys(peers)
+        .filter((e) => peers[e].addr !== undefined)
+        .map((e) => peers[e].addr.toString())
+    })
     .catch((e) => logger.error(e))
   }
 

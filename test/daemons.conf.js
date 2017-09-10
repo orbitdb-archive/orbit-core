@@ -1,32 +1,70 @@
 module.exports = {
-  daemon1: {
-    repo: '/tmp/orbit-db-tests-1',
-    start: true,
+  defaultIpfsConfig: {
+    EXPERIMENTAL: {
+      pubsub: true
+    },
     config: {
       Addresses: {
         API: '/ip4/127.0.0.1/tcp/0',
         Swarm: ['/ip4/0.0.0.0/tcp/0'],
         Gateway: '/ip4/0.0.0.0/tcp/0'
       },
-      Bootstrap: []
-    },
+      Bootstrap: [],
+      Discovery: {
+        MDNS: {
+          Enabled: true,
+          Interval: 10
+        },
+        webRTCStar: {
+          Enabled: false
+        }
+      },
+    },    
+  },
+  daemon1: {
+    repo: './orbit/tests/daemon1/ipfs',
     EXPERIMENTAL: {
-      pubsub: true,
+      pubsub: true
+    },
+    config: {
+      Addresses: {
+        API: '/ip4/127.0.0.1/tcp/0',
+        Swarm: ['/ip4/0.0.0.0/tcp/0'],
+        Gateway: '/ip4/0.0.0.0/tcp/0'
+      },
+      Bootstrap: [],
+      Discovery: {
+        MDNS: {
+          Enabled: true,
+          Interval: 10
+        },
+        webRTCStar: {
+          Enabled: false
+        }
+      },
     },
   },
   daemon2: {
-    repo: '/tmp/orbit-db-tests-2',
-    start: true,
+    repo: './orbit/tests/daemon2/ipfs',
+    EXPERIMENTAL: {
+      pubsub: true
+    },
     config: {
       Addresses: {
         API: '/ip4/127.0.0.1/tcp/0',
         Swarm: ['/ip4/0.0.0.0/tcp/0'],
         Gateway: '/ip4/0.0.0.0/tcp/0'
       },
-      Bootstrap: []
-    },
-    EXPERIMENTAL: {
-      pubsub: true,
+      Bootstrap: [],
+      Discovery: {
+        MDNS: {
+          Enabled: true,
+          Interval: 10
+        },
+        webRTCStar: {
+          Enabled: false
+        }
+      },
     },
   },
 }

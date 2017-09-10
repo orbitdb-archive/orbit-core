@@ -18,7 +18,7 @@
     <button id="send2" type="button">Send Greeting</button>
 
     <script type="text/javascript" src="lib/orbit.min.js" charset="utf-8"></script>
-    <script type="text/javascript" src="lib/ipfs-browser-daemon.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="lib/ipfs.min.js" charset="utf-8"></script>
 
     <script type="text/javascript">
       window.LOG="debug"
@@ -40,9 +40,11 @@
 
       let username = "Anonymous" + (new Date().getTime()).toString().slice(-4)
       const channel  = 'orbit-browser-example'      
-      const ipfs = new IpfsDaemon({
-        IpfsDataDir: '/orbit-browser-example',
-        SignalServer: 'star-signal.cloud.ipfs.team', // IPFS dev server
+      const ipfs = new Ipfs({
+        repo: '/orbit/browser-example',
+        EXPERIMENTAL: {
+          pubsub: true,
+        }
       })
 
       function handleError(e) {
@@ -114,12 +116,12 @@
               console.log(`Joined #${channel}`)    
 
               setInterval(() => {
-                ipfs.pubsub.peers(channel)
+                ipfs.pubsub.peers(orbit.getChannel(channel))
                   .then((peers) => peersElm.innerHTML = "Peers: " + (peers ? peers.length : 0))
               }, 1000)
 
               // Get the channel's database and wait for the history to be loaded
-              const feed = orbit.channels[channel].feed
+              const feed = orbit.getChannel(channel).feed
 
               feed.events.on('ready', (name) => {
                 messagesElement.innerHTML = ''

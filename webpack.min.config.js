@@ -25,9 +25,9 @@ module.exports = {
     Buffer: true
   },
   plugins: [
-    new webpack.optimize.AggressiveMergingPlugin(),
-    new webpack.NoErrorsPlugin(),
-    new Uglify(),
+    // new webpack.optimize.AggressiveMergingPlugin(),
+    // new webpack.NoErrorsPlugin(),
+    // new Uglify(),
   ],
   module: {
     loaders: [{
