@@ -42,6 +42,7 @@ describe('Orbit', function() {
   let channel = 'orbit-tests'
 
   before(function (done) {
+    rmrf.sync('./orbitdb')
     rmrf.sync(defaultOrbitDirectory)
     rmrf.sync(config.daemon1.repo)
     ipfs = new IPFS(config.daemon1)
@@ -54,11 +55,10 @@ describe('Orbit', function() {
   })
 
   beforeEach(function (done) {
-    rmrf.sync('./orbitdb')
     if(orbit) orbit.disconnect()
     orbit = new Orbit(ipfs, { 
       keystorePath: keystorePath, 
-      cachePath: './orbit' 
+      cachePath: './orbit' + new Date().getTime().toString(),
     })
     done()
   })
@@ -70,6 +70,7 @@ describe('Orbit', function() {
     rmrf.sync(config.daemon1.repo)
     rmrf.sync(config.daemon2.repo)
     rmrf.sync(defaultOrbitDirectory)
+    rmrf.sync('./orbitdb')
     done()
   })
 
@@ -78,7 +79,7 @@ describe('Orbit', function() {
       assert.notEqual(orbit, null)
       assert.notEqual(orbit._ipfs, null)
       assert.equal(orbit._orbitdb, null)
-      assert.equal(orbit._options.maxHistory, 64)
+      assert.equal(orbit._options.maxHistory, -1)
       assert.notEqual(orbit._options.cachePath, null)
       assert.equal(Object.keys(orbit._channels).length, 0)
     })
@@ -175,7 +176,7 @@ describe('Orbit', function() {
     it('joins a new channel', (done) => {
       orbit.join(channel)
         .then((result) => {
-          const c = orbit.channels[channel]
+          const c = orbit.getChannel(channel)
           assert.equal(result, true)
           assert.notEqual(c, null)
           assert.equal(Object.keys(orbit.channels).length, 1)
@@ -191,7 +192,7 @@ describe('Orbit', function() {
       return orbit.join(channel)
         .then(() => orbit.join(channel))
         .then((result) => {
-          const c = orbit.channels[channel]
+          const c = orbit.getChannel(channel)
           assert.equal(result, false)
           assert.equal(Object.keys(orbit.channels).length, 1)
           assert.equal(c.name, channel)
@@ -205,8 +206,8 @@ describe('Orbit', function() {
       return orbit.join(channel)
         .then(() => orbit.join(channel2))
         .then((result) => {
-          const c1 = orbit.channels[channel]
-          const c2 = orbit.channels[channel2]
+          const c1 = orbit.getChannel(channel)
+          const c2 = orbit.getChannel(channel2)
           assert.equal(result, true)
           assert.equal(Object.keys(orbit.channels).length, 2)
           assert.equal(c1.name, channel)
@@ -234,7 +235,7 @@ describe('Orbit', function() {
 
     it('emits \'joined\' event after joining a new channel', (done) => {
       orbit.events.once('joined', (channelName) => {
-        const c = orbit.channels[channel]
+        const c = orbit.getChannel(channel)
         assert.notEqual(channel, null)
         assert.equal(channel, c.name)
         assert.equal(channelName, c.name)
@@ -337,20 +338,21 @@ describe('Orbit', function() {
         assert.equal(orbit.user.id, userId)
       })
 
-      it.skip('network', () => {
-        // assert.notEqual(orbit.network, null)
-        // assert.equal(orbit.network.name, 'Orbit DEV Network')
+      it('network', () => {
+        assert.equal(orbit.network, 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L')
       })
 
-      it.skip('peers', () => {
-        // TODO
+      it('peers', () => {
+        // We don't currently test that peers exists,
+        // we only test that the api is there
+        assert.notEqual(orbit.peers, null)
       })
 
       describe('channels', function() {
         it('returns a joined channel', (done) => {
           orbit.join(channel).then(() => {
             assert.equal(Object.keys(orbit.channels).length, 1)
-            assert.equal(orbit.channels[channel].name, channel)
+            assert.equal(orbit.getChannel(channel).name, channel)
             done()
           })
         })
@@ -359,7 +361,7 @@ describe('Orbit', function() {
           const channel2 = 'test2'
           orbit.join(channel2).then(() => {
             orbit.join(channel).then(() => {
-              const c = orbit.channels[channel]
+              const c = orbit.getChannel(channel)
               assert.equal(Object.keys(orbit.channels).length, 2)
               assert.equal(c.name, channel)
               assert.equal(c.password, null)
@@ -443,9 +445,8 @@ describe('Orbit', function() {
     it('throws an error when channel is not specified', (done) => {
       orbit.join(channel)
         .then(() => orbit.send(null, 'hello'))
-        .then((post) => done(new Error("Channel was not specified!")))
         .catch((e) => {
-          assert.equal(e.toString(), `Channel not specified`)
+          assert.equal(e.toString(), `Channel must be specified`)
           done()
         })
     })
@@ -454,7 +455,7 @@ describe('Orbit', function() {
       const channel = 'test1'
       const content = 'hello1'
       orbit.send(channel, content)
-        .then((post) => done(new Error(`Not joined on #${channel} but the message was sent!`)))
+        // .then((post) => done(new Error(`Not joined on #${channel} but the message was sent!`)))
         .catch((e) => {
           assert.equal(e.toString(), `Haven't joined #${channel}`)
           done()
@@ -758,8 +759,7 @@ describe('Orbit', function() {
     it('emits \'message\'', (done) => {
       orbit.events.on('message', (channelName, message) => {
         try {
-          assert.equal(channelName.indexOf('/orbitdb/') === 0, true)
-          assert.equal(channelName.indexOf(channel + '.events') > -1, true)
+          assert.equal(channelName, channel + '.events')
           assert.notEqual(message, undefined)
           assert.equal(message.content, 'hello')
           assert.equal(message.hash.startsWith('Qm'), true)
