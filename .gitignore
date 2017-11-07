@@ -4,3 +4,4 @@ dist/*.map
 orbit/
 orbitdb/
 orbit-db/
+test/keys/

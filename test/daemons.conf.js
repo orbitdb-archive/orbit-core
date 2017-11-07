@@ -23,6 +23,7 @@ module.exports = {
   },
   daemon1: {
     repo: './orbit/tests/daemon1/ipfs',
+    start: true,
     EXPERIMENTAL: {
       pubsub: true
     },
@@ -46,6 +47,7 @@ module.exports = {
   },
   daemon2: {
     repo: './orbit/tests/daemon2/ipfs',
+    start: true,
     EXPERIMENTAL: {
       pubsub: true
     },
