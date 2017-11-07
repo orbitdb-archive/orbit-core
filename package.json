@@ -7,11 +7,12 @@
     "fs-pull-blob-store": "idb-pull-blob-store"
   },
   "dependencies": {
+    "bl": "^1.2.1",
     "ipfs-post": "github:haadcode/ipfs-post",
     "logplease": "~1.2.14",
     "lru": "~3.1.0",
     "orbit-crypto": "~0.1.0-beta.1",
-    "orbit-db": "github:orbitdb/orbit-db#feat/cli"
+    "orbit-db": "github:orbitdb/orbit-db#feat/write-access"
   },
   "devDependencies": {
     "babel-core": "^6.14.0",
@@ -19,9 +20,9 @@
     "babel-plugin-syntax-flow": "^6.13.0",
     "babel-plugin-transform-flow-strip-types": "^6.14.0",
     "babel-preset-es2015": "^6.14.0",
-    "ipfs": "~0.25.4",
+    "ipfs": "~0.26.0",
     "json-loader": "^0.5.4",
-    "mocha": "^3.5.0",
+    "mocha": "^4.0.1",
     "p-each-series": "^1.0.0",
     "p-map": "^1.1.1",
     "p-whilst": "^1.0.0",

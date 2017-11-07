@@ -62,17 +62,21 @@ class Orbit {
   }
 
   _getChannelPath (channel) {
-    const orbitChannel = path.join(networkHash, '/orbit', channel)
-    const addr = OrbitDB.parseAddress(orbitChannel)
-    // console.log("channel:", addr)
-    return addr
+    const c = Object.keys(this._channels).filter(e => e === channel)[0]
+    return c ? this._channels[c] : null
+    // const orbitChannel = path.join(networkHash, '/orbit', channel)
+    // const addr = OrbitDB.parseAddress(orbitChannel)
+    // // console.log("channel:", addr)
+    // return addr
   }
   /* Public methods */
 
   getChannel (channel) {
     // channel = path.join('/QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L', '/orbit', channel)
     const c = this._getChannelPath(channel)
-    return this._channels[c]
+    // console.log(">>>>>>", c)
+    // const c = channel
+    return c
   }
 
   connect(credentials = {}) {
@@ -90,11 +94,10 @@ class Orbit {
 
     return IdentityProviders.authorizeUser(this._ipfs, credentials)
       .then((user) => this._user = user)
-      .then(() => new OrbitDB(this._ipfs, this.user.id))
-      // .then(() => OrbitDB.connect(host, this.user.identityProvider.id, null, this._ipfs))
+      // .then(() => new OrbitDB(this._ipfs, this._options.cachePath, { sync: false }))
+      .then(() => new OrbitDB(this._ipfs, this._options.cachePath, { sync: false }))
       .then((orbitdb) => {
         this._orbitdb = orbitdb
-        // NOTE! 
         // FIXME TODO
         // Hard-coded network information for now
         this._network = networkHash
@@ -103,7 +106,7 @@ class Orbit {
         return
       })
       .then(() => {
-        logger.info(`Connected to '${this._orbitdb.path}' as '${this.user.name}`)
+        logger.info(`Connected to '${this._orbitdb.address}' as '${this.user.name}`)
         this.events.emit('connected', this.network, this.user)
         return this
       })
@@ -123,11 +126,12 @@ class Orbit {
     }
   }
 
-  join(channel) {
+  async join (channel) {
     if(!channel || channel === '')
       return Promise.reject(`Channel not specified`)
 
-    const c = this._getChannelPath(channel)
+    // const c = this._getChannelPath(channel) || channel
+    const c = channel
 
     logger.debug(`Join #${c}`)
 
@@ -139,12 +143,16 @@ class Orbit {
     // console.log(this._user)
     const dbOptions = {
       path: this._options.cachePath,
-      maxHistory: this._options.maxHistory,
+      // maxHistory: this._options.maxHistory,
       // syncHistory: true,
+      // Allow anyone to write to the channel
+      admin: ['*'],
+      write: ['*'],
     }
 
-    const db = this._orbitdb.eventlog(c, dbOptions)
-
+    const db = await this._orbitdb.eventlog(c, dbOptions)
+    // await db.load()
+    
     this._channels[c] = {
       name: channel,
       password: null,
@@ -156,19 +164,23 @@ class Orbit {
     // this._channels[channel].feed.events.on('history', this._handleNewMessages.bind(this))
     this._channels[c].feed.events.on('write', this._handleMessage.bind(this))
     this._channels[c].feed.events.on('synced', this._handleNewMessages.bind(this))
+    this._channels[c].feed.events.on('replicated', this._handleNewMessages.bind(this))
     // this._orbitdb.events.on('data', this._handleMessage.bind(this)) // Subscribe to updates in the database
-    const historyAmount = 1
-    this._channels[c].feed.load(historyAmount)
+    // Don't wait for loading to be completed before returning, ie. no 'await' here
+    // const historyAmount = 1
+    // this._channels[c].feed.load(historyAmount)
     this.events.emit('joined', channel)
+    this._channels[c].feed.load()
+    // console.log(this._channels)
     return Promise.resolve(true)
   }
 
   leave(channel) {
-    const c = this._getChannelPath(channel)
+    const c = this.getChannel(channel)
 
-    if(this._channels[c]) {
-      this._channels[c].feed.close()
-      delete this._channels[c]
+    if(c) {
+      c.feed.close()
+      delete this._channels[c.name]
       logger.debug("Left channel #" + channel)
     }
     this.events.emit('left', channel)
@@ -307,7 +319,8 @@ class Orbit {
     }
 
     const addToIpfsGo = (ipfs, filename, filePath) => {
-      return ipfs.util.addFromFs(filePath, { recursive: true })
+      return ipfs.files.add({ path: filePath })
+      // return ipfs.util.addFromFs(filePath, { recursive: true })
         .then((result) => {
           // last added hash is the filename --> we added a directory
           // first added hash is the filename --> we added a file
@@ -321,7 +334,7 @@ class Orbit {
 
     logger.info("Adding file from path '" + source.filename + "'")
 
-    const isBuffer = (source.buffer && source.filename)
+    const isBuffer = (source.content && source.filename)
     const name = source.directory 
       ? source.directory.split("/").pop() 
       : source.filename.split("/").pop()
@@ -330,7 +343,7 @@ class Orbit {
     let feed, addToIpfs
 
     if(isBuffer) // Adding from browsers
-      addToIpfs = () => addToIpfsJs(this._ipfs, source.buffer)
+      addToIpfs = () => addToIpfsJs(this._ipfs, source.content)
     else if(source.directory) // Adding from Electron
       addToIpfs = () => addToIpfsGo(this._ipfs, name, source.directory)
     else
@@ -422,10 +435,11 @@ class Orbit {
     if(!channel || channel === '')
       return Promise.reject(`Channel not specified`)
 
-    const c = this._getChannelPath(channel)
-
+    const c = this.getChannel(channel)
+    // const c = Object.keys(this._channels).filter(e => this._channels[e].feed.dbname === channel)[0]
+    // console.log("ccc", c)
     return new Promise((resolve, reject) => {
-      const feed = this._channels[c] && this._channels[c].feed ? this._channels[c].feed : null
+      const feed = c && c.feed ? c.feed : null
       if(!feed) reject(`Haven't joined #${channel}`)
       resolve(feed)
     })
@@ -433,14 +447,23 @@ class Orbit {
 
   // TODO: tests for everything below
   _handleMessage(channel, logHash, message) {
-    const c = this._channels[channel]
-    logger.debug("New message in #", c.name, "\n" + JSON.stringify(message, null, 2))
-    const value = JSON.parse(message.payload.value)
-    value.Post.hash = value.Hash
-    let obj = Object.assign({}, message)
-    obj = Object.assign(obj, { payload: { value: value } })
-    this.events.emit('message', c.name, obj.payload.value.Post)
-
+    // console.log(">>", channel, logHash, message)
+    const name = Object.keys(this._channels).filter(e => this._channels[e].feed.address.toString() === channel)[0]
+    const c = this.getChannel(name)
+    // console.log(">>>", c, name, channel)
+    // console.log(">>>", this._channels)
+    try {
+      if (c) {
+        logger.debug("New message in #", c.name, "\n" + JSON.stringify(message, null, 2))
+        const value = JSON.parse(message[0].payload.value)
+        value.Post.hash = value.Hash
+        let obj = Object.assign({}, message)
+        obj = Object.assign(obj, { payload: { value: value } })
+        this.events.emit('message', c.name, obj.payload.value.Post)
+      }
+    } catch(e) {
+      logger.error(e)
+    }
     // this.getPost(message.payload.value, true)
     //   .then((post) => {
     //     // post.hash = post.hash || message.payload.value
@@ -450,10 +473,12 @@ class Orbit {
   }
 
   _handleNewMessages(dbPath) {
-    const channel = this._channels[dbPath]
+    // const channel = this._channels[dbPath]
+    const name = Object.keys(this._channels).filter(e => this._channels[e].feed.address.toString() === dbPath)[0]
+    const c = this.getChannel(name)
     // console.log("..", dbPath, channel)
     // if(this._channels[channel]) {
-    this.events.emit('synced', channel.name)
+    this.events.emit('synced', name)
     // }
   }
 
