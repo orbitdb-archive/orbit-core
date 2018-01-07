@@ -66,7 +66,7 @@ describe.skip('Orbit - Send and Receive Tests', function() {
 
   const tests = [
     {
-      description: 'send and receive two ways - concurrent',
+      description: 'send and receive concurrently - 4 clients',
       messages: 100,
       maxInterval: -1,
       minInterval: 0,
@@ -79,7 +79,7 @@ describe.skip('Orbit - Send and Receive Tests', function() {
       ],
     },
     {
-      description: 'send and receive two ways - concurrent, as fast as possible',
+      description: 'send and receive concurrently - 2 clients',
       messages: 1000,
       maxInterval: -1,
       minInterval: 0,
@@ -90,10 +90,10 @@ describe.skip('Orbit - Send and Receive Tests', function() {
       ],
     },
     {
-      description: 'send and receive two ways - concurrent, random, slow write times',
-      messages: 200,
-      maxInterval: 2000,
-      minInterval: 200,
+      description: 'random write times - 4 clients',
+      messages: 100,
+      maxInterval: 1000,
+      minInterval: 100,
       content: 'Hello world, ',
       clients: [
         { name: 'daemon1' },
@@ -216,9 +216,11 @@ describe.skip('Orbit - Send and Receive Tests', function() {
         return createIpfsInstance(c)
           .then(ipfs => startOrbitClient(c, ipfs))
       }, { concurrency: 1 })
-      .then((result) => {
+      .then(async (result) => {
         clients = result
-        allChannels = clients.map(orbit => orbit.join(channelName))
+        await clients[0]._ipfs.swarm.connect(clients[1]._ipfs._peerInfo.multiaddrs._multiaddrs[0].toString())
+        await clients[1]._ipfs.swarm.connect(clients[0]._ipfs._peerInfo.multiaddrs._multiaddrs[0].toString())
+        allChannels = await pMap(clients, orbit => orbit.join(channelName))
         waitForAllPeers = clients.map(orbit => waitForPeers(orbit._ipfs, orbit.getChannel(channelName)))
         return setupAllMessages(clients)
       })
