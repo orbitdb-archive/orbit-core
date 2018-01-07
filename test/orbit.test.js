@@ -57,14 +57,15 @@ describe('Orbit', function() {
     done()
   })
 
-  after((done) => {
-    if(orbit) orbit.disconnect()
-    ipfs.stop()
+  after(async () => {
+    if(orbit) 
+      orbit.disconnect()
+
+    await ipfs.stop()
     // rmrf.sync(config.daemon1.repo)
     // rmrf.sync(config.daemon2.repo)
     // rmrf.sync(defaultOrbitDirectory)
     // rmrf.sync('./orbitdb')
-    done()
   })
 
   describe('constructor', function() {
@@ -267,14 +268,12 @@ describe('Orbit', function() {
         .catch(done)
     })
 
-    it('leaves a channel', (done) => {
-      orbit.join(channel).then(() => {
-        orbit.leave(channel)
-        const channels = orbit.channels
-        assert.equal(Object.keys(channels).length, 0)
-        assert.equal(channels[channel], null)
-        done()
-      })
+    it('leaves a channel', async () => {
+      await orbit.join(channel)
+      await orbit.leave(channel)
+      const channels = orbit.channels
+      assert.equal(Object.keys(channels).length, 0)
+      assert.equal(channels[channel], null)
     })
 
     it('emits \'left\' event after leaving channel', (done) => {
@@ -686,24 +685,14 @@ describe('Orbit', function() {
     })
 
     it('returns the contents of a file', (done) => {
-      orbit.getFile(hash)
-        .then((res) => {
-          // console.log("----", res)
-          // res.pipe(bl((err, data) => {
-          //   const contents = fs.readFileSync(filePath)
-          //   assert.equal(data, contents.toString())
-          //   done()
-          // }))
-          let data = ''
-          res.on('data', (chunk) => data += chunk)
-          res.on('end', () => {
-            const contents = fs.readFileSync(filePath)
-            assert.equal(data, contents.toString())
-            done()
-          })
-          // res.resume()
-        })
-        .catch(done)
+      const res = orbit.getFile(hash)
+      let data = ''
+      res.on('data', (chunk) => data += chunk)
+      res.on('end', () => {
+        const contents = fs.readFileSync(filePath)
+        assert.equal(data, contents.toString())
+        done()
+      })
     })
   })
 
