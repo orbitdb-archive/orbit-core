@@ -15,5 +15,6 @@ build: test
 clean:
 	rm -rf orbit/
 	rm -rf node_modules/
+	rm package-lock.json
 
 .PHONY: test
