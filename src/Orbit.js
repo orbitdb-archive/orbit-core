@@ -63,18 +63,12 @@ class Orbit {
   _getChannelPath (channel) {
     const c = Object.keys(this._channels).filter(e => e === channel)[0]
     return c ? this._channels[c] : null
-    // const orbitChannel = path.join(networkHash, '/orbit', channel)
-    // const addr = OrbitDB.parseAddress(orbitChannel)
-    // // console.log("channel:", addr)
-    // return addr
   }
+
   /* Public methods */
 
   getChannel (channel) {
-    // channel = path.join('/QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L', '/orbit', channel)
     const c = this._getChannelPath(channel)
-    // console.log(">>>>>>", c)
-    // const c = channel
     return c
   }
 
