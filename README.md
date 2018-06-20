@@ -26,7 +26,7 @@ npm install orbit_
 
 ### Example
 
-See [examples/browser/index.html]() for a more detailed example.
+See [examples/browser/index.html](examples/browser/index.html) for a more detailed example.
 
 ```javascript
 /* NOTE! To run this example, you need to have an IPFS daemon running */
