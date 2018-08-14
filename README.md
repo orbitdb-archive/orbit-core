@@ -110,4 +110,4 @@ Distributable (ES5 minified for browsers) will be located in `dist/`.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © 2016-2018 Protocol Labs Inc., Haja Networks Oy
