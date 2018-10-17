@@ -138,12 +138,12 @@ class Orbit {
 
     const db = await this._orbitdb.eventlog(channelName, dbOptions)
     // await db.load()
-    
+
     this._channels[channelName] = {
       name: channelName,
       password: null,
       feed: db, // feed is the database instance
-      messages: db.iterator({ limit: -1 }).collect(), 
+      messages: db.iterator({ limit: -1 }).collect(),
     }
 
     // Subscribe to updates in the database
@@ -210,7 +210,7 @@ class Orbit {
         const messages = feed.iterator(options)
           .collect()
           .map((e) => {
-            let value 
+            let value
             try {
               value = JSON.parse(e.payload.value)
               // value.Post.hash = value.Hash
@@ -315,16 +315,16 @@ class Orbit {
 
     logger.info("Adding file from path '" + source.filename + "'")
 
-    const isBuffer = (source.content && source.filename)
-    const name = source.directory 
-      ? source.directory.split("/").pop() 
+    const isBuffer = (source.buffer && source.filename)
+    const name = source.directory
+      ? source.directory.split("/").pop()
       : source.filename.split("/").pop()
     const size = (source.meta && source.meta.size) ? source.meta.size : 0
 
     let feed, addToIpfs
 
     if(isBuffer) // Adding from browsers
-      addToIpfs = () => addToIpfsJs(this._ipfs, source.content)
+      addToIpfs = () => addToIpfsJs(this._ipfs, source.buffer)
     else if(source.directory) // Adding from Electron
       addToIpfs = () => addToIpfsGo(this._ipfs, name, source.directory)
     else
@@ -390,7 +390,7 @@ class Orbit {
     if (fromEntries) {
       return this._getChannelFeed(channel)
         .then((feed) => feed.loadMoreFrom(amount, fromEntries))
-        .catch((err) => console.error(err))      
+        .catch((err) => console.error(err))
     } else {
       return this._getChannelFeed(channel)
         .then((feed) => feed.loadMore(amount))
