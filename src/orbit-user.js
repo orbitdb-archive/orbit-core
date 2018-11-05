@@ -1,7 +1,7 @@
 'use strict'
 
 class OrbitUser {
-  constructor(keys, profileData) {
+  constructor (keys, profileData) {
     this._keys = keys
     this.profile = profileData
   }

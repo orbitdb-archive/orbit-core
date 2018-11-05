@@ -7,27 +7,27 @@ const Crypto = require('orbit-crypto')
 const Post = require('ipfs-post')
 const Logger = require('logplease')
 const LRU = require('lru')
-const rmrf = require('rimraf')
-const OrbitUser = require('./orbit-user')
+
 const IdentityProviders = require('./identity-providers')
 
-const logger = Logger.create("Orbit", { color: Logger.Colors.Green })
-Logger.setLogLevel('ERROR')
+const logger = Logger.create('Orbit', { color: Logger.Colors.Green })
+Logger.setLogLevel(
+  process.env.NODE_ENV === 'development' ? Logger.LogLevels.DEBUG : Logger.LogLevels.ERROR
+)
 
-const getAppPath = () => process.type && process.env.ENV !== "dev" ? process.resourcesPath + "/app/" : process.cwd()
+const getAppPath = () =>
+  process.type && process.env.ENV !== 'dev' ? process.resourcesPath + '/app/' : process.cwd()
 
 const networkHash = 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L'
 
 const defaultOptions = {
-  keystorePath: path.join(getAppPath(), "/orbit/keys"), // path where to keep generates keys
-  cachePath: path.join(getAppPath(), "/orbit/orbitdb"), // path to orbit-db cache file
+  keystorePath: path.join(getAppPath(), '/orbit/keys'), // path where to keep generates keys
+  cachePath: path.join(getAppPath(), '/orbit/orbitdb'), // path to orbit-db cache file
   maxHistory: -1 // how many messages to retrieve from history on joining a channel
 }
 
-let signKey
-
 class Orbit {
-  constructor(ipfs, options = {}) {
+  constructor (ipfs, options = {}) {
     this.events = new EventEmitter()
     this._network = null
     this._ipfs = ipfs
@@ -44,19 +44,19 @@ class Orbit {
 
   /* Properties */
 
-  get user() {
+  get user () {
     return this._user ? this._user.profile : null
   }
 
-  get network() {
+  get network () {
     return this._network
   }
 
-  get channels() {
+  get channels () {
     return this._channels
   }
 
-  get peers() {
+  get peers () {
     return this._peers
   }
 
@@ -68,208 +68,159 @@ class Orbit {
   /* Public methods */
 
   getChannel (channel) {
-    const c = this._getChannelPath(channel)
-    return c
+    return this._getChannelPath(channel)
   }
 
-  connect(credentials = {}) {
-    logger.debug("Load cache from:", this._options.cachePath)
+  async connect (credentials = {}) {
+    logger.debug('Load cache from:', this._options.cachePath)
     logger.info(`Connecting to Orbit as '${JSON.stringify(credentials)}`)
 
-    if(typeof credentials === 'string') {
+    if (typeof credentials === 'string') {
       credentials = { provider: 'orbit', username: credentials }
     }
 
-    // A hack to force peers to connect
-    this._ipfs.object.put(new Buffer(JSON.stringify({ app: 'orbit.chat' })))
-      .then((res) => this._ipfs.object.get(res.toJSON().multihash, { enc: 'base58' }))
-      .catch((err) => logger.error(err))
+    this._network = networkHash
 
-    return IdentityProviders.authorizeUser(this._ipfs, credentials)
-      .then((user) => this._user = user)
-      // .then(() => new OrbitDB(this._ipfs, this._options.cachePath, { sync: false }))
-      .then(() => new OrbitDB(this._ipfs, this._options.cachePath, { sync: false }))
-      .then((orbitdb) => {
-        this._orbitdb = orbitdb
-        // FIXME TODO
-        // Hard-coded network information for now
-        this._network = networkHash
-        // Get peers from libp2p and update the local peers array
-        this._startPollingForPeers()
-        return
-      })
-      .then(() => {
-        logger.info(`Connected to '${this._orbitdb.address}' as '${this.user.name}`)
-        this.events.emit('connected', this.network, this.user)
-        return this
-      })
-      .catch((e) => console.error(e))
+    // A hack to force peers to connect
+    const res = await this._ipfs.object.put(Buffer.from(JSON.stringify({ app: 'orbit.chat' })))
+    this._ipfs.object.get(res.toJSON().multihash, { enc: 'base58' })
+
+    // TODO: These can and should be called concurrently e.g. with Promise.all
+    this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
+    this._orbitdb = await new OrbitDB(this._ipfs, this._options.cachePath, { sync: false })
+
+    this._startPollingForPeers()
+
+    logger.info(`Connected to '${this._orbitdb.address}' as '${this.user.name}`)
+    this.events.emit('connected', this._network, this.user)
+
+    return this
   }
 
-  disconnect() {
-    if(this._orbitdb) {
-      logger.warn(`Disconnected from '${this.network}'`)
-      this._orbitdb.disconnect()
-      this._orbitdb = null
-      this._user = null
-      this._channels = {}
-      this._network = null
-      if(this._pollPeersTimer) clearInterval(this._pollPeersTimer)
-      this.events.emit('disconnected')
-    }
+  disconnect () {
+    if (!this._orbitdb) return
+    logger.warn(`Disconnected from '${this._network}'`)
+    this._orbitdb.disconnect()
+    this._orbitdb = null
+    this._user = null
+    this._channels = {}
+    this._network = null
+    if (this._pollPeersTimer) clearInterval(this._pollPeersTimer)
+    this.events.emit('disconnected')
   }
 
   async join (channelName) {
-    if(!channelName || channelName === '')
-      return Promise.reject(`Channel not specified`)
+    if (!channelName || channelName === '') throw new Error('Channel not specified')
 
     logger.debug(`Join #${channelName}`)
 
-    if(this._channels[channelName])
-      return Promise.resolve(false)
+    if (this._channels[channelName]) return false
 
     const dbOptions = {
       path: this._options.cachePath,
       // maxHistory: this._options.maxHistory,
       // Allow anyone to write to the channel
       admin: ['*'],
-      write: ['*'],
+      write: ['*']
     }
 
     const db = await this._orbitdb.eventlog(channelName, dbOptions)
-    // await db.load()
 
     this._channels[channelName] = {
       name: channelName,
       password: null,
       feed: db, // feed is the database instance
-      messages: db.iterator({ limit: -1 }).collect(),
+      messages: db.iterator({ limit: -1 }).collect()
     }
 
     // Subscribe to updates in the database
     this._channels[channelName].feed.events.on('write', this._handleMessage.bind(this))
     this._channels[channelName].feed.events.on('synced', this._handleNewMessages.bind(this))
     this._channels[channelName].feed.events.on('replicated', this._handleNewMessages.bind(this))
+
     this.events.emit('joined', channelName)
+
     // Don't wait for loading to be completed before returning, ie. no 'await' here
     this._channels[channelName].feed.load()
-    return Promise.resolve(true)
+
+    return true
   }
 
   async leave (channelName) {
     const channel = this.getChannel(channelName)
 
-    if(channel) {
+    if (channel) {
       await channel.feed.close()
       delete this._channels[channelName]
-      logger.debug("Left channel #" + channelName)
+      logger.debug('Left channel #' + channelName)
     }
     this.events.emit('left', channelName)
   }
 
-  send(channel, message, replyToHash) {
-    if(!channel || channel === '')
-      return Promise.reject(`Channel must be specified`)
-
-    if(!message || message === '')
-      return Promise.reject(`Can't send an empty message`)
-
-    if (!this.user) {
-      return Promise.reject(`Something went wrong: 'user' is undefined`)
-    }
+  async send (channel, message, replyToHash) {
+    if (!channel || channel === '') throw new Error('Channel must be specified')
+    if (!message || message === '') throw new Error("Can't send an empty message")
+    if (!this.user) throw new Error("Something went wrong: 'user' is undefined")
 
     logger.debug(`Send message to #${channel}: ${message}`)
 
-    let data = {
+    const data = {
       content: message.substring(0, 2048),
       replyto: replyToHash || null,
       from: this.user
     }
 
-    return this.getUser(this.user.id)
-      .then((user) => data.from = user)
-      .then(() => {
-        return this._getChannelFeed(channel)
-      })
-      .then((feed) => {
-        return this._postMessage(feed, Post.Types.Message, data, this._user._keys)
-      })
+    // TODO: These can and should be called concurrently e.g. with Promise.all
+    data.from = await this.getUser(this.user.id)
+    const feed = await this._getChannelFeed(channel)
+
+    return this._postMessage(feed, Post.Types.Message, data, this._user._keys)
   }
 
-  get(channel, lessThanHash = null, greaterThanHash = null, amount = 1) {
+  async get (channel, lessThanHash = null, greaterThanHash = null, amount = 1) {
     logger.debug(`Get messages from #${channel}: ${lessThanHash}, ${greaterThanHash}, ${amount}`)
 
-    let options = {
+    const options = {
       limit: amount,
       lt: lessThanHash,
-      gte: greaterThanHash,
+      gte: greaterThanHash
     }
 
-    return this._getChannelFeed(channel)
-      .then((feed) => {
-        const messages = feed.iterator(options)
-          .collect()
-          .map((e) => {
-            let value
-            try {
-              value = JSON.parse(e.payload.value)
-              // value.Post.hash = value.Hash
-              let obj = Object.assign({}, e)
-              obj = Object.assign(obj, { payload: { value: value } })
-              // trim content length
-              if (obj.payload.value.Post.content) {
-                const maxLength = 1024
-                obj.payload.value.Post.content = obj.payload.value.Post.content.substring(0, maxLength)
-              }
-              value.Entry = e
-              // return obj.payload.value.Post
-            } catch(err) {
-              console.warn("Failed to parse payload from message:", e)
-            }
-            return value
-          })
-          .filter(e => e !== undefined)
-        return Promise.resolve(messages)
-        // return mapSeries(messages, (e) => this.getPost(e.payload.value, true))
-        //   .catch((e) => logger.error(e))
+    const feed = await this._getChannelFeed(channel)
+
+    const messages = feed
+      .iterator(options)
+      .collect()
+      .map(e => {
+        try {
+          const value = JSON.parse(e.payload.value)
+          value.Entry = e
+          return value
+        } catch (err) {
+          logger.warn('Failed to parse payload from message:', e)
+        }
       })
+      .filter(e => e !== undefined)
+
+    return messages
   }
 
-  getPost(hash) {
-    const post = this._cache.get(hash)
+  async getPost (hash) {
+    const postFromCache = this._cache.get(hash)
 
-    if (post) {
-      return Promise.resolve(post)
-    } else {
-      let post, signKey
-      return this._ipfs.object.get(hash, { enc: 'base58' })
-        .then((res) => post = JSON.parse(res.toJSON().data))
-        // .then(() => Crypto.importKeyFromIpfs(this._ipfs, post.signKey))
-        // .then((signKey) => Crypto.verify(
-        //   post.sig,
-        //   signKey,
-        //   new Buffer(JSON.stringify({
-        //     content: post.content,
-        //     meta: post.meta,
-        //     replyto: post.replyto
-        //   })))
-        //  )
-        .then(() => {
-          this._cache.set(hash, post)
+    if (postFromCache) return postFromCache
+    else {
+      const res = await this._ipfs.object.get(hash, { enc: 'base58' })
+      const post = JSON.parse(res.toJSON().data)
 
-          // Append the hash to the data structure so consumers can use it directly
-          post.hash = post.hash || hash
+      this._cache.set(hash, post)
 
-          // if (withUserProfile) {
-          return this.getUser(post.meta.from)
-          // }
+      // Append the hash to the data structure so consumers can use it directly
+      post.hash = post.hash || hash
 
-          // return post
-        })
-        .then((user) => {
-          post.meta.from = user
-          return post
-        })
+      post.meta.from = await this.getUser(post.meta.from)
+
+      return post
     }
   }
 
@@ -285,199 +236,177 @@ class Orbit {
       meta: <meta data object>
     }
   */
-  addFile(channel, source) {
-    if(!source || (!source.filename && !source.directory))
-      return Promise.reject(`Filename or directory not specified`)
-
-    const addToIpfsJs = (ipfs, data) => {
-      return ipfs.files.add(new Buffer(data))
-        .then((result) => {
-          return {
-            Hash: result[0].hash,
-            isDirectory: false
-          }
-        })
+  async addFile (channel, source) {
+    if (!source || (!source.filename && !source.directory)) {
+      throw new Error('Filename or directory not specified')
     }
 
-    const addToIpfsGo = (ipfs, filename, filePath) => {
-      return ipfs.files.add({ path: filePath })
-      // return ipfs.util.addFromFs(filePath, { recursive: true })
-        .then((result) => {
-          // last added hash is the filename --> we added a directory
-          // first added hash is the filename --> we added a file
-          const isDirectory = result[0].path.split('/').pop() !== filename
-          return {
-            Hash: isDirectory ? result[result.length - 1].hash : result[0].hash,
-            isDirectory: isDirectory
-          }
-        })
+    async function _addToIpfsJs (data) {
+      const result = await this._ipfs.files.add(Buffer.from(data))
+      const isDirectory = false
+      const Hash = result[0].hash
+      return { Hash, isDirectory }
     }
 
-    logger.info("Adding file from path '" + source.filename + "'")
+    async function _addToIpfsGo (filename, filePath) {
+      const result = await this._ipfs.files.add({ path: filePath })
+      // last added hash is the filename --> we added a directory
+      // first added hash is the filename --> we added a file
+      const isDirectory = result[0].path.split('/').pop() !== filename
+      const Hash = isDirectory ? result[result.length - 1].hash : result[0].hash
+      return { Hash, isDirectory }
+    }
 
-    const isBuffer = (source.buffer && source.filename)
+    logger.info(`Adding file from path '${source.filename}'`)
+
+    const isBuffer = source.buffer && source.filename
     const name = source.directory
-      ? source.directory.split("/").pop()
-      : source.filename.split("/").pop()
-    const size = (source.meta && source.meta.size) ? source.meta.size : 0
+      ? source.directory.split('/').pop()
+      : source.filename.split('/').pop()
+    const size = source.meta && source.meta.size ? source.meta.size : 0
 
-    let feed, addToIpfs
+    let addToIpfs
 
-    if(isBuffer) // Adding from browsers
-      addToIpfs = () => addToIpfsJs(this._ipfs, source.buffer)
-    else if(source.directory) // Adding from Electron
-      addToIpfs = () => addToIpfsGo(this._ipfs, name, source.directory)
-    else
-      addToIpfs = () => addToIpfsGo(this._ipfs, name, source.filename)
+    if (isBuffer) {
+      // Adding from browsers
+      addToIpfs = _addToIpfsJs.bind(this, source.buffer)
+    } else if (source.directory) {
+      // Adding from Electron
+      addToIpfs = _addToIpfsGo.bind(this, name, source.directory)
+    } else {
+      addToIpfs = _addToIpfsGo.bind(this, name, source.filename)
+    }
 
-    let userProfile
+    // TODO: These can and should be called concurrently e.g. with Promise.all
+    const feed = await this._getChannelFeed(channel)
+    const userProfile = await this.getUser(this.user.id)
+    const result = await addToIpfs()
 
-    return this._getChannelFeed(channel)
-      .then((res) => feed = res)
-      .then(() => this.getUser(this.user.id))
-      .then((user) => userProfile = user)
-      .then(() => addToIpfs())
-      .then((result) => {
-        logger.info("Added file '" + source.filename + "' as ", result)
-        // Create a post
-        const type = result.isDirectory ? Post.Types.Directory : Post.Types.File
-        const data = {
-          name: name,
-          hash: result.Hash,
-          size: size,
-          from: userProfile,
-          meta: source.meta || {}
-        }
-        return this._postMessage(feed, type, data, this._user._keys)
-      })
+    logger.info(`Added file '${source.filename}' as`, result)
+
+    // Create a post
+    const type = result.isDirectory ? Post.Types.Directory : Post.Types.File
+    const data = {
+      name,
+      hash: result.Hash,
+      size,
+      from: userProfile,
+      meta: source.meta || {}
+    }
+
+    const post = await this._postMessage(feed, type, data, this._user._keys)
+
+    return post
   }
 
-  getFile(hash) {
-    if (this._ipfs.cat)
-      return this._ipfs.catReadableStream(hash)
+  getFile (hash) {
+    if (this._ipfs.cat) return this._ipfs.catReadableStream(hash)
 
     return this._ipfs.files.catReadableStream(hash)
   }
 
-  getDirectory(hash) {
-    return this._ipfs.ls(hash).then((res) => res.Objects[0].Links)
+  getDirectory (hash) {
+    return this._ipfs.ls(hash).then(res => res.Objects[0].Links)
   }
 
-  getUser(hash) {
-    const user = this._cache.get(hash)
-    if (user) {
-      return Promise.resolve(user)
-    } else {
-      return this._ipfs.object.get(hash, { enc: 'base58' })
-        .then((res) => {
-          const profileData = Object.assign(JSON.parse(res.toJSON().data))
-          Object.assign(profileData, { id: hash })
-          return IdentityProviders.loadProfile(this._ipfs, profileData)
-            .then((profile) => {
-              Object.assign(profile || profileData, { id: hash })
-              this._cache.set(hash, profile)
-              return profile
-            })
-            .catch((e) => {
-              logger.error(e)
-              return profileData
-            })
-        })
+  async getUser (hash) {
+    const userFromCache = this._cache.get(hash)
+    if (userFromCache) return userFromCache
+    else {
+      const res = await this._ipfs.object.get(hash, { enc: 'base58' })
+      const profileData = JSON.parse(res.toJSON().data)
+
+      try {
+        const profile = await IdentityProviders.loadProfile(this._ipfs, profileData)
+        Object.assign(profile || profileData, { id: hash })
+        this._cache.set(hash, profile)
+        return profile
+      } catch (e) {
+        logger.error(e)
+        return profileData
+      }
     }
   }
 
-  loadMoreHistory(channel, amount, fromEntries) {
+  loadMoreHistory (channel, amount, fromEntries) {
     if (fromEntries) {
       return this._getChannelFeed(channel)
-        .then((feed) => feed.loadMoreFrom(amount, fromEntries))
-        .catch((err) => console.error(err))
+        .then(feed => feed.loadMoreFrom(amount, fromEntries))
+        .catch(err => logger.error(err))
     } else {
       return this._getChannelFeed(channel)
-        .then((feed) => feed.loadMore(amount))
-        .catch((err) => console.error(err))
+        .then(feed => feed.loadMore(amount))
+        .catch(err => logger.error(err))
     }
   }
 
   /* Private methods */
 
-  _postMessage(feed, postType, data, signKey) {
-    let post
-    return Post.create(this._ipfs, postType, data, signKey)
-      .then((res) => {
-        post = res
-      })
-      .then(() => {
-        return feed.add(JSON.stringify(post))
-      })
-      .then(() => post)
+  async _postMessage (feed, postType, data, signKey) {
+    const post = await Post.create(this._ipfs, postType, data, signKey)
+    await feed.add(JSON.stringify(post))
+    return post
   }
 
-  _getChannelFeed(channel) {
-    if(!channel || channel === '')
-      return Promise.reject(`Channel not specified`)
-
+  async _getChannelFeed (channel) {
+    if (!channel || channel === '') throw new Error('Channel not specified')
     const c = this.getChannel(channel)
-    return new Promise((resolve, reject) => {
-      const feed = c && c.feed ? c.feed : null
-      if(!feed) reject(`Haven't joined #${channel}`)
-      resolve(feed)
-    })
+    const feed = c && c.feed ? c.feed : null
+    if (!feed) throw new Error(`Haven't joined #${channel}`)
+    return feed
   }
 
   // TODO: tests for everything below
-  _handleMessage(channel, logHash, message) {
-    const name = Object.keys(this._channels).filter(e => this._channels[e].feed.address.toString() === channel)[0]
+  _handleMessage (channel, logHash, message) {
+    const name = Object.keys(this._channels).filter(
+      e => this._channels[e].feed.address.toString() === channel
+    )[0]
     const c = this.getChannel(name)
     try {
-      if (c) {
-        logger.debug("New message in #", c.name)
-        const value = JSON.parse(message[0].payload.value)
-        logger.debug("Message:\n" + JSON.stringify(value, null, 2))
-        value.Post.hash = value.Hash
-        let obj = Object.assign({}, message)
-        obj = Object.assign(obj, { payload: { value: value } })
-        this.events.emit('message', c.name, obj.payload.value.Post)
-      }
-    } catch(e) {
+      if (!c) return
+      logger.debug('New message in #', c.name)
+      const value = JSON.parse(message[0].payload.value)
+      logger.debug('Message:\n' + JSON.stringify(value, null, 2))
+      value.Post.hash = value.Hash
+      let obj = Object.assign({}, message)
+      obj = Object.assign(obj, { payload: { value: value } })
+      this.events.emit('message', c.name, obj.payload.value.Post)
+    } catch (e) {
       logger.error(e)
     }
   }
 
-  _handleNewMessages(dbPath) {
-    const name = Object.keys(this._channels).filter(e => this._channels[e].feed.address.toString() === dbPath)[0]
-    const c = this.getChannel(name)
+  _handleNewMessages (dbPath) {
+    const name = Object.keys(this._channels).filter(
+      e => this._channels[e].feed.address.toString() === dbPath
+    )[0]
     this.events.emit('synced', name)
   }
 
-  _startPollingForPeers() {
-    if(!this._pollPeersTimer) {
-      this._pollPeersTimer = setInterval(() => {
-        this._updateSwarmPeers()
-          .then((peers) => {
-            this._peers = peers || []
-            // TODO: get unique (new) peers and emit 'peer' for each instead of all at once
-            this.events.emit('peers', this._peers)
-          })
-          .catch((e) => console.error(e))
-      }, 3000)
+  _startPollingForPeers () {
+    async function update () {
+      try {
+        this._peers = (await this._updateSwarmPeers()) || []
+        // TODO: get unique (new) peers and emit 'peer' for each instead of all at once
+        this.events.emit('peers', this._peers)
+      } catch (e) {
+        logger.error(e)
+      }
+    }
+
+    if (!this._pollPeersTimer) this._pollPeersTimer = setInterval(update.bind(this), 3000)
+  }
+
+  async _updateSwarmPeers () {
+    try {
+      const peers = await this._ipfs.swarm.peers()
+      return Object.keys(peers)
+        .filter(e => peers[e].addr !== undefined)
+        .map(e => peers[e].addr.toString())
+    } catch (e) {
+      logger.error(e)
     }
   }
-
-  _updateSwarmPeers() {
-    return new Promise((resolve, reject) => {
-      this._ipfs.swarm.peers((err, res) => {
-        if(err) reject(err)
-        resolve(res)
-      })
-    })
-    .then((peers) => {
-      return Object.keys(peers)
-        .filter((e) => peers[e].addr !== undefined)
-        .map((e) => peers[e].addr.toString())
-    })
-    .catch((e) => logger.error(e))
-  }
-
 }
 
 module.exports = Orbit

@@ -1,7 +1,7 @@
 'use strict'
 
 class OrbitUserProfile {
-  constructor(profile) {
+  constructor (profile) {
     this.name = profile.name
     this.location = profile.location || 'Earth'
     this.image = profile.image
