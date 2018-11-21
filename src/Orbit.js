@@ -118,7 +118,7 @@ class Orbit {
 
     const dbOptions = {
       path: this._options.cachePath,
-      // maxHistory: this._options.maxHistory,
+      maxHistory: this._options.maxHistory,
       // Allow anyone to write to the channel
       admin: ['*'],
       write: ['*']
@@ -129,21 +129,10 @@ class Orbit {
     this._channels[channelName] = {
       name: channelName,
       password: null,
-      feed: db, // feed is the database instance
-      messages: db.iterator({ limit: -1 }).collect()
+      feed: db // feed is the database instance
     }
 
-    // Subscribe to updates in the database
-    this._channels[channelName].feed.events.on('write', this._handleMessage.bind(this))
-    this._channels[channelName].feed.events.on('synced', this._handleNewMessages.bind(this))
-    this._channels[channelName].feed.events.on('replicated', this._handleNewMessages.bind(this))
-
     this.events.emit('joined', channelName)
-
-    // Don't wait for loading to be completed before returning, ie. no 'await' here
-    this._channels[channelName].feed.load()
-
-    return true
   }
 
   async leave (channelName) {
@@ -175,53 +164,6 @@ class Orbit {
     const feed = await this._getChannelFeed(channel)
 
     return this._postMessage(feed, Post.Types.Message, data, this._user._keys)
-  }
-
-  async get (channel, lessThanHash = null, greaterThanHash = null, amount = 1) {
-    logger.debug(`Get messages from #${channel}: ${lessThanHash}, ${greaterThanHash}, ${amount}`)
-
-    const options = {
-      limit: amount,
-      lt: lessThanHash,
-      gte: greaterThanHash
-    }
-
-    const feed = await this._getChannelFeed(channel)
-
-    const messages = feed
-      .iterator(options)
-      .collect()
-      .map(e => {
-        try {
-          const value = JSON.parse(e.payload.value)
-          value.Entry = e
-          return value
-        } catch (err) {
-          logger.warn('Failed to parse payload from message:', e)
-        }
-      })
-      .filter(e => e !== undefined)
-
-    return messages
-  }
-
-  async getPost (hash) {
-    const postFromCache = this._cache.get(hash)
-
-    if (postFromCache) return postFromCache
-    else {
-      const res = await this._ipfs.object.get(hash, { enc: 'base58' })
-      const post = JSON.parse(res.toJSON().data)
-
-      this._cache.set(hash, post)
-
-      // Append the hash to the data structure so consumers can use it directly
-      post.hash = post.hash || hash
-
-      post.meta.from = await this.getUser(post.meta.from)
-
-      return post
-    }
   }
 
   /*
@@ -354,33 +296,6 @@ class Orbit {
     const feed = c && c.feed ? c.feed : null
     if (!feed) throw new Error(`Haven't joined #${channel}`)
     return feed
-  }
-
-  // TODO: tests for everything below
-  _handleMessage (channel, logHash, message) {
-    const name = Object.keys(this._channels).filter(
-      e => this._channels[e].feed.address.toString() === channel
-    )[0]
-    const c = this.getChannel(name)
-    try {
-      if (!c) return
-      logger.debug('New message in #', c.name)
-      const value = JSON.parse(message[0].payload.value)
-      logger.debug('Message:\n' + JSON.stringify(value, null, 2))
-      value.Post.hash = value.Hash
-      let obj = Object.assign({}, message)
-      obj = Object.assign(obj, { payload: { value: value } })
-      this.events.emit('message', c.name, obj.payload.value.Post)
-    } catch (e) {
-      logger.error(e)
-    }
-  }
-
-  _handleNewMessages (dbPath) {
-    const name = Object.keys(this._channels).filter(
-      e => this._channels[e].feed.address.toString() === dbPath
-    )[0]
-    this.events.emit('synced', name)
   }
 
   _startPollingForPeers () {
