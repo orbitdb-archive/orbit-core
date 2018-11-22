@@ -3,7 +3,6 @@
 const path = require('path')
 const EventEmitter = require('events').EventEmitter
 const OrbitDB = require('orbit-db')
-const Crypto = require('orbit-crypto')
 const Post = require('ipfs-post')
 const Logger = require('logplease')
 const LRU = require('lru')
@@ -22,8 +21,7 @@ const getAppPath = () =>
 const networkHash = 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L'
 
 const defaultOptions = {
-  cachePath: path.join(getAppPath(), '/orbit/orbitdb'), // path to orbit-db cache file
-  keystorePath: path.join(getAppPath(), '/orbit/keys'), // path where to keep generates keys
+  directory: path.join(getAppPath(), '/orbit/orbitdb'), // path to orbit-db file
   maxHistory: -1 // how many messages to retrieve from history on joining a channel
 }
 
@@ -39,7 +37,6 @@ class Orbit {
     this._pollPeersTimer = null
     this._options = Object.assign({}, defaultOptions, options)
     this._cache = new LRU(1000)
-    Crypto.useKeyStore(this._options.keystorePath)
   }
 
   /* Public properties */
@@ -63,7 +60,6 @@ class Orbit {
   /* Public methods */
 
   async connect (credentials = {}) {
-    logger.debug('Load cache from:', this._options.cachePath)
     logger.info(`Connecting to Orbit as '${JSON.stringify(credentials)}`)
 
     if (typeof credentials === 'string') {
@@ -78,7 +74,7 @@ class Orbit {
 
     // TODO: These can and should be called concurrently e.g. with Promise.all
     this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
-    this._orbitdb = await new OrbitDB(this._ipfs, this._options.cachePath, { sync: false })
+    this._orbitdb = await new OrbitDB(this._ipfs, this._options.directory, { sync: false })
 
     this._startPollingForPeers()
 
@@ -113,7 +109,7 @@ class Orbit {
     if (this.channels[channelName]) return false
 
     const dbOptions = {
-      path: this._options.cachePath,
+      path: this._options.directory,
       maxHistory: this._options.maxHistory,
       // Allow anyone to write to the channel
       admin: ['*'],
