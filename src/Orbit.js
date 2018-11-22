@@ -11,6 +11,7 @@ const LRU = require('lru')
 const IdentityProviders = require('./identity-providers')
 
 const logger = Logger.create('Orbit', { color: Logger.Colors.Green })
+
 Logger.setLogLevel(
   process.env.NODE_ENV === 'development' ? Logger.LogLevels.DEBUG : Logger.LogLevels.ERROR
 )
@@ -21,8 +22,8 @@ const getAppPath = () =>
 const networkHash = 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L'
 
 const defaultOptions = {
-  keystorePath: path.join(getAppPath(), '/orbit/keys'), // path where to keep generates keys
   cachePath: path.join(getAppPath(), '/orbit/orbitdb'), // path to orbit-db cache file
+  keystorePath: path.join(getAppPath(), '/orbit/keys'), // path where to keep generates keys
   maxHistory: -1 // how many messages to retrieve from history on joining a channel
 }
 
@@ -36,13 +37,12 @@ class Orbit {
     this._channels = {}
     this._peers = []
     this._pollPeersTimer = null
-    this._options = Object.assign({}, defaultOptions)
+    this._options = Object.assign({}, defaultOptions, options)
     this._cache = new LRU(1000)
-    Object.assign(this._options, options)
     Crypto.useKeyStore(this._options.keystorePath)
   }
 
-  /* Properties */
+  /* Public properties */
 
   get user () {
     return this._user ? this._user.profile : null
@@ -60,16 +60,7 @@ class Orbit {
     return this._peers
   }
 
-  _getChannelPath (channel) {
-    const c = Object.keys(this._channels).filter(e => e === channel)[0]
-    return c ? this._channels[c] : null
-  }
-
   /* Public methods */
-
-  getChannel (channel) {
-    return this._getChannelPath(channel)
-  }
 
   async connect (credentials = {}) {
     logger.debug('Load cache from:', this._options.cachePath)
@@ -91,7 +82,8 @@ class Orbit {
 
     this._startPollingForPeers()
 
-    logger.info(`Connected to '${this._orbitdb.address}' as '${this.user.name}`)
+    logger.info(`Connected to '${this._network}' as '${this.user.name}`)
+
     this.events.emit('connected', this._network, this.user)
 
     return this
@@ -99,13 +91,17 @@ class Orbit {
 
   disconnect () {
     if (!this._orbitdb) return
+
     logger.warn(`Disconnected from '${this._network}'`)
+
     this._orbitdb.disconnect()
     this._orbitdb = null
     this._user = null
     this._channels = {}
     this._network = null
+
     if (this._pollPeersTimer) clearInterval(this._pollPeersTimer)
+
     this.events.emit('disconnected')
   }
 
@@ -114,7 +110,7 @@ class Orbit {
 
     logger.debug(`Join #${channelName}`)
 
-    if (this._channels[channelName]) return false
+    if (this.channels[channelName]) return false
 
     const dbOptions = {
       path: this._options.cachePath,
@@ -143,15 +139,16 @@ class Orbit {
       delete this._channels[channelName]
       logger.debug('Left channel #' + channelName)
     }
+
     this.events.emit('left', channelName)
   }
 
-  async send (channel, message, replyToHash) {
-    if (!channel || channel === '') throw new Error('Channel must be specified')
+  async send (channelName, message, replyToHash) {
+    if (!channelName || channelName === '') throw new Error('Channel must be specified')
     if (!message || message === '') throw new Error("Can't send an empty message")
     if (!this.user) throw new Error("Something went wrong: 'user' is undefined")
 
-    logger.debug(`Send message to #${channel}: ${message}`)
+    logger.debug(`Send message to #${channelName}: ${message}`)
 
     const data = {
       content: message.substring(0, 2048),
@@ -161,7 +158,7 @@ class Orbit {
 
     // TODO: These can and should be called concurrently e.g. with Promise.all
     data.from = await this.getUser(this.user.id)
-    const feed = await this._getChannelFeed(channel)
+    const feed = await this._getChannelFeed(channelName)
 
     return this._postMessage(feed, Post.Types.Message, data, this._user._keys)
   }
@@ -254,31 +251,28 @@ class Orbit {
   async getUser (hash) {
     const userFromCache = this._cache.get(hash)
     if (userFromCache) return userFromCache
-    else {
-      const res = await this._ipfs.object.get(hash, { enc: 'base58' })
-      const profileData = JSON.parse(res.toJSON().data)
 
-      try {
-        const profile = await IdentityProviders.loadProfile(this._ipfs, profileData)
-        Object.assign(profile || profileData, { id: hash })
-        this._cache.set(hash, profile)
-        return profile
-      } catch (e) {
-        logger.error(e)
-        return profileData
-      }
+    const res = await this._ipfs.object.get(hash, { enc: 'base58' })
+    const profileData = JSON.parse(res.toJSON().data)
+
+    try {
+      const profile = await IdentityProviders.loadProfile(this._ipfs, profileData)
+      Object.assign(profile || profileData, { id: hash })
+      this._cache.set(hash, profile)
+      return profile
+    } catch (e) {
+      logger.error(e)
+      return profileData
     }
   }
 
-  loadMoreHistory (channel, amount, fromEntries) {
-    if (fromEntries) {
-      return this._getChannelFeed(channel)
-        .then(feed => feed.loadMoreFrom(amount, fromEntries))
-        .catch(err => logger.error(err))
-    } else {
-      return this._getChannelFeed(channel)
-        .then(feed => feed.loadMore(amount))
-        .catch(err => logger.error(err))
+  async loadMoreHistory (channel, amount, fromEntries) {
+    const feed = await this._getChannelFeed(channel)
+    try {
+      if (fromEntries) return feed.loadMoreFrom(amount, fromEntries)
+      return feed.loadMore(amount)
+    } catch (err) {
+      logger.error(err)
     }
   }
 
@@ -290,11 +284,10 @@ class Orbit {
     return post
   }
 
-  async _getChannelFeed (channel) {
-    if (!channel || channel === '') throw new Error('Channel not specified')
-    const c = this.getChannel(channel)
-    const feed = c && c.feed ? c.feed : null
-    if (!feed) throw new Error(`Haven't joined #${channel}`)
+  async _getChannelFeed (channelName) {
+    if (!channelName || channelName === '') throw new Error('Channel not specified')
+    const feed = this.channels[channelName].feed || null
+    if (!feed) throw new Error(`Have not joined #${channelName}`)
     return feed
   }
 
