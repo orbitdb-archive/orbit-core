@@ -131,7 +131,7 @@ class Orbit {
   }
 
   async leave (channelName) {
-    const channel = this.getChannel(channelName)
+    const channel = this.channels[channelName]
 
     if (channel) {
       await channel.feed.close()
