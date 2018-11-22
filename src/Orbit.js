@@ -3,6 +3,7 @@
 const path = require('path')
 const EventEmitter = require('events').EventEmitter
 const OrbitDB = require('orbit-db')
+const Crypto = require('orbit-crypto')
 const Post = require('ipfs-post')
 const Logger = require('logplease')
 const LRU = require('lru')
@@ -22,6 +23,7 @@ const networkHash = 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L'
 
 const defaultOptions = {
   directory: path.join(getAppPath(), '/orbit/orbitdb'), // path to orbit-db file
+  keystorePath: path.join(getAppPath(), '/orbit/keys'), // path where to keep generates keys
   maxHistory: -1 // how many messages to retrieve from history on joining a channel
 }
 
@@ -37,6 +39,7 @@ class Orbit {
     this._pollPeersTimer = null
     this._options = Object.assign({}, defaultOptions, options)
     this._cache = new LRU(1000)
+    Crypto.useKeyStore(this._options.keystorePath)
   }
 
   /* Public properties */
