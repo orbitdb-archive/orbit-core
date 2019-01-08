@@ -5,7 +5,7 @@ const Uport = require('uport-lib').Uport
 const Persona = require('uport-persona').Persona
 
 const Crypto = require('orbit-crypto')
-const OrbitUser = require('./orbit-user')
+const OrbitUser = require('../orbit-user')
 
 const web3 = new Web3()
 

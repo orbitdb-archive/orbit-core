@@ -3,12 +3,9 @@
 const path = require('path')
 const EventEmitter = require('events').EventEmitter
 const OrbitDB = require('orbit-db')
-const Crypto = require('orbit-crypto')
-const Post = require('ipfs-post')
 const Logger = require('logplease')
-const LRU = require('lru')
 
-const IdentityProviders = require('./identity-providers')
+const IdentityProviders = require('./IdentityProviders')
 
 const logger = Logger.create('Orbit', { color: Logger.Colors.Green })
 
@@ -19,18 +16,13 @@ Logger.setLogLevel(
 const getAppPath = () =>
   process.type && process.env.ENV !== 'dev' ? process.resourcesPath + '/app/' : process.cwd()
 
-const networkHash = 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L'
-
 const defaultOptions = {
-  directory: path.join(getAppPath(), '/orbit/orbitdb'), // path to orbit-db file
-  keystorePath: path.join(getAppPath(), '/orbit/keys'), // path where to keep generates keys
-  maxHistory: -1 // how many messages to retrieve from history on joining a channel
+  directory: path.join(getAppPath(), '/orbit/orbitdb') // path to orbit-db file
 }
 
 class Orbit {
   constructor (ipfs, options = {}) {
     this.events = new EventEmitter()
-    this._network = null
     this._ipfs = ipfs
     this._orbitdb = null
     this._user = null
@@ -38,18 +30,12 @@ class Orbit {
     this._peers = []
     this._pollPeersTimer = null
     this._options = Object.assign({}, defaultOptions, options)
-    this._cache = new LRU(1000)
-    Crypto.useKeyStore(this._options.keystorePath)
   }
 
   /* Public properties */
 
   get user () {
-    return this._user ? this._user.profile : null
-  }
-
-  get network () {
-    return this._network
+    return this._user
   }
 
   get channels () {
@@ -63,27 +49,24 @@ class Orbit {
   /* Public methods */
 
   async connect (credentials = {}) {
-    logger.info(`Connecting to Orbit as '${JSON.stringify(credentials)}`)
+    logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
 
     if (typeof credentials === 'string') {
-      credentials = { provider: 'orbit', username: credentials }
+      credentials = { provider: 'orbitdb', username: credentials }
     }
 
-    this._network = networkHash
-
-    // A hack to force peers to connect
-    const res = await this._ipfs.object.put(Buffer.from(JSON.stringify({ app: 'orbit.chat' })))
-    this._ipfs.object.get(res.toJSON().multihash, { enc: 'base58' })
-
-    // TODO: These can and should be called concurrently e.g. with Promise.all
     this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
-    this._orbitdb = await new OrbitDB(this._ipfs, this._options.directory, { sync: false })
+
+    this._orbitdb = await OrbitDB.createInstance(this._ipfs, {
+      directory: this._options.directory,
+      identity: this.user.identity
+    })
 
     this._startPollingForPeers()
 
-    logger.info(`Connected to '${this._network}' as '${this.user.name}`)
+    logger.info(`Connected to Orbit as "${this.user.profile.name}"`)
 
-    this.events.emit('connected', this._network, this.user)
+    this.events.emit('connected', this.user)
 
     return this
   }
@@ -91,13 +74,12 @@ class Orbit {
   disconnect () {
     if (!this._orbitdb) return
 
-    logger.warn(`Disconnected from '${this._network}'`)
+    logger.warn('Disconnected')
 
     this._orbitdb.disconnect()
     this._orbitdb = null
     this._user = null
     this._channels = {}
-    this._network = null
 
     if (this._pollPeersTimer) clearInterval(this._pollPeersTimer)
 
@@ -107,25 +89,23 @@ class Orbit {
   async join (channelName) {
     if (!channelName || channelName === '') throw new Error('Channel not specified')
 
-    logger.debug(`Join #${channelName}`)
-
     if (this.channels[channelName]) return false
 
-    const dbOptions = {
-      path: this._options.directory,
-      maxHistory: this._options.maxHistory,
-      // Allow anyone to write to the channel
-      admin: ['*'],
-      write: ['*']
-    }
+    logger.debug(`Join #${channelName}`)
 
-    const db = await this._orbitdb.eventlog(channelName, dbOptions)
+    const db = await this._orbitdb.log(channelName, {
+      accessController: {
+        write: ['*'] // Allow anyone to write to the channel
+      }
+    })
 
     this._channels[channelName] = {
       name: channelName,
       password: null,
       feed: db // feed is the database instance
     }
+
+    logger.debug(`Joined #${channelName}, ${db.address.toString()}`)
 
     this.events.emit('joined', channelName)
   }
@@ -151,15 +131,10 @@ class Orbit {
 
     const data = {
       content: message.substring(0, 2048),
-      replyto: replyToHash || null,
-      from: this.user
+      meta: { from: this.user.profile, type: 'text', ts: new Date().getTime() }
     }
 
-    // TODO: These can and should be called concurrently e.g. with Promise.all
-    data.from = await this.getUser(this.user.id)
-    const feed = await this._getChannelFeed(channelName)
-
-    return this._postMessage(feed, Post.Types.Message, data, this._user._keys)
+    return this._postMessage(channelName, data)
   }
 
   /*
@@ -174,7 +149,7 @@ class Orbit {
       meta: <meta data object>
     }
   */
-  async addFile (channel, source) {
+  async addFile (channelName, source) {
     if (!source || (!source.filename && !source.directory)) {
       throw new Error('Filename or directory not specified')
     }
@@ -182,8 +157,8 @@ class Orbit {
     async function _addToIpfsJs (data) {
       const result = await this._ipfs.files.add(Buffer.from(data))
       const isDirectory = false
-      const Hash = result[0].hash
-      return { Hash, isDirectory }
+      const hash = result[0].hash
+      return { hash, isDirectory }
     }
 
     async function _addToIpfsGo (filename, filePath) {
@@ -191,8 +166,8 @@ class Orbit {
       // last added hash is the filename --> we added a directory
       // first added hash is the filename --> we added a file
       const isDirectory = result[0].path.split('/').pop() !== filename
-      const Hash = isDirectory ? result[result.length - 1].hash : result[0].hash
-      return { Hash, isDirectory }
+      const hash = isDirectory ? result[result.length - 1].hash : result[0].hash
+      return { hash, isDirectory }
     }
 
     logger.info(`Adding file from path '${source.filename}'`)
@@ -215,26 +190,25 @@ class Orbit {
       addToIpfs = _addToIpfsGo.bind(this, name, source.filename)
     }
 
-    // TODO: These can and should be called concurrently e.g. with Promise.all
-    const feed = await this._getChannelFeed(channel)
-    const userProfile = await this.getUser(this.user.id)
-    const result = await addToIpfs()
+    const upload = await addToIpfs()
 
-    logger.info(`Added file '${source.filename}' as`, result)
+    logger.info(`Added file '${source.filename}' as`, upload)
 
     // Create a post
-    const type = result.isDirectory ? Post.Types.Directory : Post.Types.File
     const data = {
-      name,
-      hash: result.Hash,
-      size,
-      from: userProfile,
-      meta: source.meta || {}
+      content: upload.hash,
+      meta: Object.assign(
+        {
+          from: this.user.profile,
+          type: upload.isDirectory ? 'directory' : 'file',
+          ts: new Date().getTime()
+        },
+        { size, name },
+        source.meta || {}
+      )
     }
 
-    const post = await this._postMessage(feed, type, data, this._user._keys)
-
-    return post
+    return this._postMessage(channelName, data)
   }
 
   getFile (hash) {
@@ -247,26 +221,8 @@ class Orbit {
     return this._ipfs.ls(hash).then(res => res.Objects[0].Links)
   }
 
-  async getUser (hash) {
-    const userFromCache = this._cache.get(hash)
-    if (userFromCache) return userFromCache
-
-    const res = await this._ipfs.object.get(hash, { enc: 'base58' })
-    const profileData = JSON.parse(res.toJSON().data)
-
-    try {
-      const profile = await IdentityProviders.loadProfile(this._ipfs, profileData)
-      Object.assign(profile || profileData, { id: hash })
-      this._cache.set(hash, profile)
-      return profile
-    } catch (e) {
-      logger.error(e)
-      return profileData
-    }
-  }
-
   async loadMoreHistory (channel, amount, fromEntries) {
-    const feed = await this._getChannelFeed(channel)
+    const feed = this._getChannelFeed(channel)
     try {
       if (fromEntries) return feed.loadMoreFrom(amount, fromEntries)
       return feed.loadMore(amount)
@@ -277,13 +233,12 @@ class Orbit {
 
   /* Private methods */
 
-  async _postMessage (feed, postType, data, signKey) {
-    const post = await Post.create(this._ipfs, postType, data, signKey)
-    await feed.add(JSON.stringify(post))
-    return post
+  _postMessage (channelName, data) {
+    const feed = this._getChannelFeed(channelName)
+    return feed.add(data)
   }
 
-  async _getChannelFeed (channelName) {
+  _getChannelFeed (channelName) {
     if (!channelName || channelName === '') throw new Error('Channel not specified')
     const feed = this.channels[channelName].feed || null
     if (!feed) throw new Error(`Have not joined #${channelName}`)
