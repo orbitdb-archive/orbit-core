@@ -12,8 +12,8 @@
   "dependencies": {
     "ipfs": "^0.33.1",
     "logplease": "~1.2.15",
-    "orbit-db": "git://github.com/orbitdb/orbit-db.git#feat/new-acs",
-    "orbit-db-identity-provider": "git://github.com/orbitdb/orbit-db-identity-provider.git#master"
+    "orbit-db": "github:orbitdb/orbit-db#feat/new-acs",
+    "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#fix/devdeps-to-deps"
   },
   "devDependencies": {
     "@babel/core": "^7.1.6",
