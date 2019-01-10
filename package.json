@@ -10,7 +10,6 @@
     "not dead"
   ],
   "dependencies": {
-    "ipfs": "^0.33.1",
     "logplease": "~1.2.15",
     "orbit-db": "github:orbitdb/orbit-db#feat/new-acs",
     "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#fix/devdeps-to-deps"
