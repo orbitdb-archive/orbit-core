@@ -17,7 +17,10 @@ const getAppPath = () =>
   process.type && process.env.ENV !== 'dev' ? process.resourcesPath + '/app/' : process.cwd()
 
 const defaultOptions = {
-  directory: path.join(getAppPath(), '/orbit/orbitdb') // path to orbit-db file
+  dbOptions: {
+    directory: path.join(getAppPath(), '/orbit/orbitdb') // path to orbit-db file
+  },
+  channelOptions: {}
 }
 
 class Orbit {
@@ -57,10 +60,15 @@ class Orbit {
 
     this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
 
-    this._orbitdb = await OrbitDB.createInstance(this._ipfs, {
-      directory: this._options.directory,
-      identity: this.user.identity
-    })
+    const options = Object.assign(
+      {
+        directory: this._options.directory,
+        identity: this.user.identity
+      },
+      this._options.dbOptions
+    )
+
+    this._orbitdb = await OrbitDB.createInstance(this._ipfs, options)
 
     this._startPollingForPeers()
 
@@ -93,11 +101,16 @@ class Orbit {
 
     logger.debug(`Join #${channelName}`)
 
-    const db = await this._orbitdb.log(channelName, {
-      accessController: {
-        write: ['*'] // Allow anyone to write to the channel
-      }
-    })
+    const options = Object.assign(
+      {
+        accessController: {
+          write: ['*'] // Allow anyone to write to the channel
+        }
+      },
+      this._options.channelOptions
+    )
+
+    const db = await this._orbitdb.log(channelName, options)
 
     this._channels[channelName] = {
       name: channelName,
