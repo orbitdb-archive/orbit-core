@@ -1,7 +1,7 @@
 {
   "name": "orbit_",
   "version": "0.1.0",
-  "description": "Orbit - Communication System on IPFS",
+  "description": "Orbit communication protocol and library",
   "main": "src/Orbit.js",
   "browser": {
     "fs-pull-blob-store": "idb-pull-blob-store"
