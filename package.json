@@ -11,8 +11,8 @@
   ],
   "dependencies": {
     "logplease": "~1.2.15",
-    "orbit-db": "github:orbitdb/orbit-db#feat/new-acs",
-    "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#fix/devdeps-to-deps"
+    "orbit-db": "github:orbitdb/orbit-db#0a121359cce43c9d209f3b3924fced780daf1dc2",
+    "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#5abf7a8fc9a4c5e1b14e63652ec6cf884113113c"
   },
   "devDependencies": {
     "@babel/core": "^7.1.6",
