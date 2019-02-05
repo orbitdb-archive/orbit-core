@@ -33,6 +33,8 @@ class Orbit {
     this._peers = []
     this._pollPeersTimer = null
     this._options = Object.assign({}, defaultOptions, options)
+    this._joiningQueue = {}
+    this._connecting = false
   }
 
   /* Public properties */
@@ -52,6 +54,10 @@ class Orbit {
   /* Public methods */
 
   async connect (credentials = {}) {
+    if (this._orbitdb) throw new Error('Already connected')
+    if (this._connecting) throw new Error('Already connecting')
+    else this._connecting = true
+
     logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
 
     if (typeof credentials === 'string') {
@@ -60,15 +66,16 @@ class Orbit {
 
     this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
 
-    const options = Object.assign(
-      {
-        directory: this._options.directory,
-        identity: this.user.identity
-      },
-      this._options.dbOptions
+    this._orbitdb = await OrbitDB.createInstance(
+      this._ipfs,
+      Object.assign(
+        {
+          directory: this._options.directory,
+          identity: this.user.identity
+        },
+        this._options.dbOptions
+      )
     )
-
-    this._orbitdb = await OrbitDB.createInstance(this._ipfs, options)
 
     this._startPollingForPeers()
 
@@ -94,33 +101,40 @@ class Orbit {
     this.events.emit('disconnected')
   }
 
-  async join (channelName) {
-    if (!channelName || channelName === '') throw new Error('Channel not specified')
+  join (channelName) {
+    if (!channelName || channelName === '') Promise.reject(new Error('Channel not specified'))
 
-    if (this.channels[channelName]) return false
+    if (this._channels[channelName]) return Promise.resolve(this._channels[channelName])
 
-    logger.debug(`Join #${channelName}`)
+    if (this._joiningQueue[channelName]) return this._joiningQueue[channelName]
 
-    const options = Object.assign(
-      {
-        accessController: {
-          write: ['*'] // Allow anyone to write to the channel
-        }
-      },
-      this._options.channelOptions
-    )
+    this._joiningQueue[channelName] = new Promise(async resolve => {
+      logger.debug(`Join #${channelName}`)
 
-    const db = await this._orbitdb.log(channelName, options)
+      const feed = await this._orbitdb.log(
+        channelName,
+        Object.assign(
+          {
+            accessController: {
+              write: ['*'] // Allow anyone to write to the channel
+            }
+          },
+          this._options.channelOptions
+        )
+      )
 
-    this._channels[channelName] = {
-      name: channelName,
-      password: null,
-      feed: db // feed is the database instance
-    }
+      this._channels[channelName] = {
+        name: channelName,
+        password: null,
+        feed // feed is the database instance
+      }
 
-    logger.debug(`Joined #${channelName}, ${db.address.toString()}`)
+      logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
 
-    this.events.emit('joined', channelName)
+      this.events.emit('joined', channelName)
+
+      resolve(this._channels[channelName])
+    })
   }
 
   async leave (channelName) {
