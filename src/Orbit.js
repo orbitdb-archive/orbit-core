@@ -248,16 +248,6 @@ class Orbit {
     return this._ipfs.ls(hash).then(res => res.Objects[0].Links)
   }
 
-  async loadMoreHistory (channel, amount, fromEntries) {
-    const feed = this._getChannelFeed(channel)
-    try {
-      if (fromEntries) return feed.loadMoreFrom(amount, fromEntries)
-      return feed.loadMore(amount)
-    } catch (err) {
-      logger.error(err)
-    }
-  }
-
   /* Private methods */
 
   _postMessage (channelName, data) {
