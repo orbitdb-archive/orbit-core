@@ -106,35 +106,37 @@ class Orbit {
 
     if (this._channels[channelName]) return Promise.resolve(this._channels[channelName])
 
-    if (this._joiningQueue[channelName]) return this._joiningQueue[channelName]
+    if (!this._joiningQueue[channelName]) {
+      this._joiningQueue[channelName] = new Promise(async resolve => {
+        logger.debug(`Join #${channelName}`)
 
-    this._joiningQueue[channelName] = new Promise(async resolve => {
-      logger.debug(`Join #${channelName}`)
-
-      const feed = await this._orbitdb.log(
-        channelName,
-        Object.assign(
-          {
-            accessController: {
-              write: ['*'] // Allow anyone to write to the channel
-            }
-          },
-          this._options.channelOptions
+        const feed = await this._orbitdb.log(
+          channelName,
+          Object.assign(
+            {
+              accessController: {
+                write: ['*'] // Allow anyone to write to the channel
+              }
+            },
+            this._options.channelOptions
+          )
         )
-      )
 
-      this._channels[channelName] = {
-        name: channelName,
-        password: null,
-        feed // feed is the database instance
-      }
+        this._channels[channelName] = {
+          name: channelName,
+          password: null,
+          feed // feed is the database instance
+        }
 
-      logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
+        logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
 
-      this.events.emit('joined', channelName)
+        this.events.emit('joined', channelName)
 
-      resolve(this._channels[channelName])
-    })
+        resolve(this._channels[channelName])
+      })
+    }
+
+    return this._joiningQueue[channelName]
   }
 
   async leave (channelName) {
