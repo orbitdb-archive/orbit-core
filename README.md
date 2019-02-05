@@ -2,9 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/orbit_.svg)](https://badge.fury.io/js/orbit_)
 [![CircleCI Status](https://circleci.com/gh/orbitdb/orbit-core.svg?style=shield)](https://circleci.com/gh/orbitdb/orbit-core)
-[![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/orbitdb/Lobby)
-[![Project Status](https://badge.waffle.io/haadcode/orbit.svg?label=In%20Progress&title=Roadmap)](https://waffle.io/haadcode/orbit)
 
 >  Communication protocol on IPFS
 
