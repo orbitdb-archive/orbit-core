@@ -128,6 +128,8 @@ class Orbit {
           feed // feed is the database instance
         }
 
+        delete this._joiningQueue[channelName]
+
         logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
 
         this.events.emit('joined', channelName)
