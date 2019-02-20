@@ -41,8 +41,8 @@
   },
   "scripts": {
     "test": "mocha",
-    "build": "npm run build:dist && cp dist/orbit.min.js examples/browser/lib && cp node_modules/ipfs/dist/index.min.js examples/browser/lib/ipfs.min.js",
-    "build:dist": "webpack --config webpack.min.config.js --hide-modules --progress"
+    "build": "npm run build:dist && cp dist/orbit.min.js examples/browser/lib",
+    "build:dist": "webpack --mode=production --config webpack.min.config.js --hide-modules --progress"
   },
   "repository": {
     "type": "git",

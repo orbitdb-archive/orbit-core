@@ -17,7 +17,7 @@
     <button id="send" type="button">Send</button>
     <button id="send2" type="button">Send Greeting</button>
 
-    <script type="text/javascript" src="lib/orbit.min.js" charset="utf-8"></script>
+    <script src="https://unpkg.com/ipfs/dist/index.min.js"></script>
     <script type="text/javascript" src="lib/ipfs.min.js" charset="utf-8"></script>
 
     <script type="text/javascript">
@@ -39,7 +39,7 @@
       const peersElm = document.getElementById("peersCount")
 
       let username = "Anonymous" + (new Date().getTime()).toString().slice(-4)
-      const channel  = 'orbit-browser-example'      
+      const channel  = 'orbit-browser-example'
       const ipfs = new Ipfs({
         repo: '/orbit/browser-example',
         EXPERIMENTAL: {
@@ -49,7 +49,7 @@
 
       function handleError(e) {
         console.error(e.stack)
-        elm.innerHTML = e.message  
+        elm.innerHTML = e.message
       }
 
       ipfs.on('error', (e) => handleError(e))
@@ -59,7 +59,7 @@
 
         // Setup Orbit
         const options = {
-          maxHistory: 10, 
+          maxHistory: 10,
           cachePath: username + '/orbit-db',
         }
 
@@ -76,7 +76,7 @@
 
         const connect = () => {
           messagesElement.innerHTML = ''
-          
+
           if (orbit && orbit.network) {
             connectButton.removeEventListener('click', connect)
             sendGreetingButton.removeEventListener('click', send2)
@@ -95,7 +95,7 @@
                   .map((message) => `${formatTimestamp(message.Post.meta.ts)} < ${message.Post.meta.from.name}> ${message.Post.content}<br/>`).join("\n")
                 messagesElement.innerHTML = history
                 usernameElement.innerHTML = username
-              })            
+              })
           }
           // Handle new messages
           orbit.events.on('message', (channel, message) => updateMessages())
@@ -104,7 +104,7 @@
             updateMessages()
           })
 
-          // Connect        
+          // Connect
           orbit.connect(username)
             .then(() => {
               connectButton.addEventListener('click', connect)
@@ -113,7 +113,7 @@
             })
             .then(() => {
               channelNameElement.innerHTML = "#" + channel
-              console.log(`Joined #${channel}`)    
+              console.log(`Joined #${channel}`)
 
               setInterval(() => {
                 ipfs.pubsub.peers(orbit.getChannel(channel))
