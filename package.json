@@ -24,6 +24,7 @@
     "@babel/preset-react": "^7.0.0",
     "@orbitdb/eslint-config-orbitdb": "0.0.2",
     "babel-loader": "^8.0.4",
+    "babel-polyfill": "^6.26.0",
     "eslint": "^5.9.0",
     "eslint-config-standard": "^12.0.0",
     "eslint-plugin-compat": "^2.6.3",

@@ -51,6 +51,10 @@ class Orbit {
     return this._peers
   }
 
+  get online () {
+    return !!this._orbitdb
+  }
+
   /* Public methods */
 
   async connect (credentials = {}) {

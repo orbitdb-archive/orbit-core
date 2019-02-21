@@ -3,7 +3,7 @@
 const path = require('path')
 
 module.exports = {
-  entry: './src/Orbit.js',
+  entry: ['babel-polyfill', './src/Orbit.js'],
   output: {
     path: path.join(__dirname, 'dist'),
     libraryTarget: 'var',
