@@ -3,7 +3,7 @@
 const path = require('path')
 
 module.exports = {
-  entry: ['babel-polyfill', './src/Orbit.js'],
+  entry: ['babel-polyfill', path.join(__dirname, 'src/Orbit.js')],
   output: {
     path: path.join(__dirname, 'dist'),
     libraryTarget: 'var',
@@ -11,25 +11,19 @@ module.exports = {
     filename: 'orbit.min.js'
   },
   target: 'web',
-  node: {
-    console: false,
-    Buffer: true
-  },
   module: {
     rules: [
       {
         test: /\.(js|jsx)$/,
         exclude: /node_modules/,
         use: ['babel-loader']
-      },
-      {
-        test: /\.js$/,
-        include: /node_modules\/(hoek|qs|wreck|boom|promisify-es|logplease|ipfs-.+|orbit.*|crdts)/,
-        use: ['babel-loader']
       }
     ]
   },
-  resolve: {
-    modules: ['node_modules', path.resolve(__dirname, '../node_modules')]
+  devServer: {
+    contentBase: path.join(__dirname, 'examples/browser'),
+    publicPath: '/lib/',
+    compress: true,
+    port: 8000
   }
 }
