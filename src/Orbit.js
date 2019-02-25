@@ -6,6 +6,7 @@ const OrbitDB = require('orbit-db')
 const Logger = require('logplease')
 
 const IdentityProviders = require('./IdentityProviders')
+const Channel = require('./Channel')
 
 const logger = Logger.create('Orbit', { color: Logger.Colors.Green })
 
@@ -86,8 +87,6 @@ class Orbit {
     logger.info(`Connected to Orbit as "${this.user.profile.name}"`)
 
     this.events.emit('connected', this.user)
-
-    return this
   }
 
   disconnect () {
@@ -106,39 +105,30 @@ class Orbit {
   }
 
   join (channelName) {
-    if (!channelName || channelName === '') Promise.reject(new Error('Channel not specified'))
-
-    if (this._channels[channelName]) return Promise.resolve(this._channels[channelName])
-
-    if (!this._joiningQueue[channelName]) {
-      this._joiningQueue[channelName] = new Promise(async resolve => {
+    if (!channelName || channelName === '') {
+      return Promise.reject(new Error('Channel not specified'))
+    } else if (this._channels[channelName]) {
+      return Promise.resolve(this._channels[channelName])
+    } else if (!this._joiningQueue[channelName]) {
+      this._joiningQueue[channelName] = new Promise(resolve => {
         logger.debug(`Join #${channelName}`)
 
-        const feed = await this._orbitdb.log(
-          channelName,
-          Object.assign(
-            {
-              accessController: {
-                write: ['*'] // Allow anyone to write to the channel
-              }
-            },
-            this._options.channelOptions
-          )
+        const options = Object.assign(
+          {
+            accessController: {
+              write: ['*'] // Allow anyone to write to the channel
+            }
+          },
+          this._options.channelOptions
         )
 
-        this._channels[channelName] = {
-          name: channelName,
-          password: null,
-          feed // feed is the database instance
-        }
-
-        delete this._joiningQueue[channelName]
-
-        logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
-
-        this.events.emit('joined', channelName)
-
-        resolve(this._channels[channelName])
+        this._orbitdb.log(channelName, options).then(feed => {
+          this._channels[channelName] = new Channel(this, channelName, feed)
+          logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
+          this.events.emit('joined', channelName, this._channels[channelName])
+          delete this._joiningQueue[channelName]
+          resolve(this._channels[channelName])
+        })
       })
     }
 
