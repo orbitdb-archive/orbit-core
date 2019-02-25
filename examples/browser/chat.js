@@ -14,7 +14,7 @@ const peersElm = document.getElementById('peersCount')
 
 const visibleMessages = 20
 
-let username =
+const username =
   'Anonymous' +
   new Date()
     .getTime()
@@ -23,9 +23,7 @@ let username =
 
 const channelName = 'orbit-browser-example'
 
-// Init IPFS
-const ipfs = new Ipfs({
-  repo: '/orbit/browser-example',
+const ipfsOptions = {
   EXPERIMENTAL: {
     pubsub: true,
     sharding: false,
@@ -37,119 +35,103 @@ const ipfs = new Ipfs({
       Swarm: ['/dns4/ws-star.discovery.libp2p.io/tcp/443/wss/p2p-websocket-star']
     }
   }
-})
+}
 
-ipfs.on('ready', () => {
-  let orbit
-  let peerIntervalId
+const orbitOptions = {
+  dbOptions: { maxHistory: visibleMessages }
+}
 
-  const connect = () => {
-    // Replace HTML elements so their eventListeners are cleared
-    connectButton = replaceElement(connectButton)
-    messageField = replaceElement(messageField)
-    sendButton = replaceElement(sendButton)
-    sendGreetingButton = replaceElement(sendGreetingButton)
+let messages = []
 
-    messagesElement.innerHTML = ''
-    username = userField.value || username
+function startIpfs (username) {
+  userField.value = username
+  usernameElement.innerHTML = username
 
-    if (orbit) {
-      // Reconnecting
-      clearInterval(peerIntervalId)
-      const _orbit = orbit
-      _orbit.leave(channelName).then(() => {
-        _orbit.disconnect()
-      })
-    }
+  // Change the repo path so it includes our username
+  // This makes each chat per username an independent instance
+  ipfsOptions.repo = `/orbit/browser-example/${username}`
+  const ipfs = new Ipfs(ipfsOptions)
+  ipfs.on('ready', () => initOrbit(ipfs, username))
+}
 
-    // Setup Orbit
-    orbit = new Orbit(ipfs, {
-      dbOptions: { maxHistory: visibleMessages, directory: username + '/orbit-db' }
-    })
+function initOrbit (ipfs, username) {
+  // Change the db directory path so it includes our username
+  // This makes each chat per username an independent instance
+  orbitOptions.dbOptions.directory = `/orbit/browser-example/${username}`
+  const orbit = new Orbit(ipfs, orbitOptions)
+  orbit.events.on('connected', () => orbit.join(channelName))
+  orbit.events.on('joined', onJoinedChannel)
+  orbit.connect(username)
 
-    // Connect
-    orbit
-      .connect(username)
-      .then(() => {
-        connectButton.addEventListener('click', connect)
-        userField.value = username
-        usernameElement.innerHTML = username
-        return orbit.join(channelName)
-      })
-      .then(() => {
-        const channel = orbit.channels[channelName]
+  connectButton = replaceElement(connectButton)
+  connectButton.addEventListener('click', async () => {
+    // Reconnect
+    await orbit.disconnect()
+    await ipfs.stop()
+    startIpfs(userField.value)
+  })
 
-        channelNameElement.innerHTML = '#' + channelName
+  orbit.events.on('entry', (entry, channelName) => {
+    const post = entry.payload.value
+    console.log(`[${post.meta.ts}] < ${post.meta.from.name}> ${post.content}`)
+  })
+}
 
-        sendButton.addEventListener('click', () => sendMessage(orbit, channelName))
-        sendGreetingButton.addEventListener('click', () => sendGreeting(orbit, channelName))
+function onJoinedChannel (channelName, channel) {
+  messages = []
 
-        messageField.addEventListener('keyup', event => {
-          if (event.keyCode === 13) sendMessage(orbit, channelName)
-        })
+  // Replace HTML elements so their eventListeners are cleared
+  messageField = replaceElement(messageField)
+  sendButton = replaceElement(sendButton)
+  sendGreetingButton = replaceElement(sendGreetingButton)
 
-        channel.feed.load()
+  channelNameElement.innerHTML = '#' + channelName
 
-        // Handle new messages
-        channel.feed.events.on('write', () => updateMessages(channel))
-        channel.feed.events.on('replicated', () => updateMessages(channel))
+  channel.on('ready', async () => {
+    channel.sendMessage(`/me has joined ${channelName}`)
+    channel.peers.then(renderPeers)
+  })
 
-        channel.feed.events.on('ready', () => {
-          setTimeout(
-            sendMessage.bind(null, orbit, channelName, `/me has joined ${channelName}`),
-            2000
-          )
-        })
+  channel.on('entry', entry => {
+    messages = [...messages, entry.payload.value].sort((a, b) => a.meta.ts - b.meta.ts)
+    renderMessages(messages)
+    channel.peers.then(renderPeers)
+  })
 
-        peerIntervalId = setInterval(updatePeers.bind(null, ipfs, channel), 1000)
-      })
-      .catch(handleError)
-  }
+  sendGreetingButton.addEventListener('click', () => sendGreeting(channel))
+  sendButton.addEventListener('click', () => sendMessage(channel))
+  messageField.addEventListener('keyup', event => {
+    if (event.keyCode === 13) sendMessage(channel)
+  })
 
-  connect()
-})
+  channel.load()
+}
 
-ipfs.on('error', handleError)
-
-function sendMessage (orbit, channelName, message = null) {
-  orbit.send(channelName, message || messageField.value)
+function sendMessage (channel) {
+  channel.sendMessage(messageField.value)
   messageField.value = null
 }
 
-function sendGreeting (orbit, channelName) {
+function sendGreeting (channel) {
   const creatures = ['👻', '🐙', '🐷', '🐬', '🐞', '🐈', '🙉', '🐸', '🐓']
-  const idx = Math.floor(Math.random() * creatures.length)
-  sendMessage(orbit, channelName, 'Greetings! ' + creatures[idx])
+  channel.sendMessage('Greetings! ' + creatures[Math.floor(Math.random() * creatures.length)])
 }
 
-function updateMessages (channel) {
-  const entries = channel.feed.iterator({ limit: visibleMessages }).collect()
-  const history = entries
-    .sort((a, b) => a.payload.value.meta.ts - b.payload.value.meta.ts)
-    .map(
-      entry =>
-        `${formatTimestamp(entry.payload.value.meta.ts)} &lt;${
-          entry.payload.value.meta.from.name
-        }&gt; ${entry.payload.value.content}<br/>`
-    )
+function renderMessages (messages) {
+  messagesElement.innerHTML = messages
+    .slice(-visibleMessages)
+    .map(msg => `${formatTimestamp(msg.meta.ts)} &lt;${msg.meta.from.name}&gt; ${msg.content}<br/>`)
     .join('\n')
-  messagesElement.innerHTML = history
 }
 
-function updatePeers (ipfs, channel) {
-  ipfs.pubsub
-    .peers(channel.feed.address.toString())
-    .then(peers => (peersElm.innerHTML = 'Peers: ' + (peers ? peers.length : 0)))
+function renderPeers (peers) {
+  peersElm.innerHTML = 'Peers: ' + (peers ? peers.length : 0)
 }
 
 function replaceElement (oldElement) {
   const newElement = oldElement.cloneNode(true)
   oldElement.parentNode.replaceChild(newElement, oldElement)
   return newElement
-}
-
-function handleError (e) {
-  console.error(e.stack)
 }
 
 function formatTimestamp (timestamp) {
@@ -163,3 +145,5 @@ function formatTimestamp (timestamp) {
     safeTime(date.getSeconds())
   )
 }
+
+startIpfs(username)
