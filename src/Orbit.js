@@ -237,8 +237,6 @@ class Orbit {
   }
 
   getFile (hash) {
-    if (this._ipfs.cat) return this._ipfs.catReadableStream(hash)
-
     return this._ipfs.catReadableStream(hash)
   }
 
