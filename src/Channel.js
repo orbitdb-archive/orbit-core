@@ -8,29 +8,32 @@ class Channel extends EventEmitter {
     this.channelName = channelName
     this.feed = feed
 
+    this.feed.events.on('error', this._onError.bind(this))
+    this.feed.events.on('write', this._onWrite.bind(this))
     this.feed.events.on('load.progress', this._onLoadProgress.bind(this))
     this.feed.events.on('replicate.progress', this._onReplicateProgress.bind(this))
-    this.feed.events.on('write', this._onWrite.bind(this))
     this.feed.events.on('ready', this._onReady.bind(this))
+    this.feed.events.on('replicated', this._onReplicated.bind(this))
   }
 
   get peers () {
     return this.orbit._ipfs.pubsub.peers(this.feed.address.toString())
   }
 
-  // Called while loading from local filesystem
-  _onLoadProgress (...args) {
-    this._onNewEntry(args[2])
+  get replicationStatus () {
+    return this.feed.replicationStatus
   }
 
-  // Called while loading from IPFS (receiving new messages)
-  _onReplicateProgress (...args) {
-    this._onNewEntry(args[2])
+  get address () {
+    return this.feed.address
   }
 
-  // Called when the user writes a message (text or file)
-  _onWrite (...args) {
-    this._onNewEntry(args[2][0])
+  get hasMoreHistory () {
+    return this.replicationStatus.progress < this.replicationStatus.max
+  }
+
+  _onError (error) {
+    this.emit('error', error)
   }
 
   _onNewEntry (entry) {
@@ -38,8 +41,31 @@ class Channel extends EventEmitter {
     this.orbit.events.emit('entry', entry, this.channelName)
   }
 
+  // Called while loading from local filesystem
+  _onLoadProgress (...args) {
+    this.emit('load.progress')
+    this._onNewEntry(args[2])
+  }
+
+  // Called while loading from IPFS (receiving new messages)
+  _onReplicateProgress (...args) {
+    this.emit('replicate.progress')
+    this._onNewEntry(args[2])
+  }
+
   _onReady () {
+    this.emit('load.done')
     this.emit('ready')
+  }
+
+  _onReplicated () {
+    this.emit('replicate.done')
+  }
+
+  // Called when the user writes a message (text or file)
+  _onWrite (...args) {
+    this.emit('write')
+    this._onNewEntry(args[2][0])
   }
 
   load (amount) {
@@ -49,6 +75,83 @@ class Channel extends EventEmitter {
   sendMessage (message) {
     return this.orbit.send(this.channelName, message)
   }
+
+  sendFile (file) {
+    return this.orbit.addFile(this.channelName, file)
+  }
+
+  async loadMore (amount = 10) {
+    // TODO: This is a bit hacky, but at the time of writing is the only way
+    // to load more entries
+
+    if (!this.hasMoreHistory) return
+
+    const log = this.feed._oplog
+    const Log = log.constructor
+
+    const newLog = await Log.fromEntryCid(
+      this.feed._ipfs,
+      this.feed.identity,
+      log.tails[0].next[0],
+      {
+        logId: log.id,
+        access: this.feed.access,
+        length: log.values.length + amount,
+        exclude: log.values,
+        onProgressCallback: this.feed._onLoadProgress.bind(this.feed)
+      }
+    )
+
+    // await log.join(newLog)
+    await monkeyPatchedJoin(log, newLog)
+
+    await this.feed._updateIndex()
+
+    this.feed.events.emit('ready', this.feed.address.toString(), log.heads)
+  }
+}
+
+async function monkeyPatchedJoin (log, newLog) {
+  const Log = log.constructor
+
+  if (!Log.monkeyPatched) {
+    Log._origDifference = Log.difference
+    Log.difference = differenceMonkeyPatch
+    Log.monkeyPatched = true
+  }
+
+  await log.join(newLog)
+
+  if (Log.monkeyPatched) {
+    Log.difference = Log._origDifference
+    delete Log._origDifference
+    delete Log.monkeyPatched
+  }
+}
+
+function differenceMonkeyPatch (a, b) {
+  // let stack = Object.keys(a._headsIndex)
+  const stack = Object.keys(a._entryIndex) // This is the only change
+  const traversed = {}
+  const res = {}
+
+  const pushToStack = hash => {
+    if (!traversed[hash] && !b.get(hash)) {
+      stack.push(hash)
+      traversed[hash] = true
+    }
+  }
+
+  while (stack.length > 0) {
+    const hash = stack.shift()
+    const entry = a.get(hash)
+    if (entry && !b.get(hash) && entry.id === b.id) {
+      res[entry.hash] = entry
+      traversed[entry.hash] = true
+      entry.next.forEach(pushToStack)
+    }
+  }
+  return res
 }
 
 module.exports = Channel
