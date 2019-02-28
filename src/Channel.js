@@ -28,10 +28,6 @@ class Channel extends EventEmitter {
     return this.feed.address
   }
 
-  get hasMoreHistory () {
-    return this.replicationStatus.progress < this.replicationStatus.max
-  }
-
   _onError (error) {
     this.emit('error', error)
   }
@@ -84,30 +80,36 @@ class Channel extends EventEmitter {
     // TODO: This is a bit hacky, but at the time of writing is the only way
     // to load more entries
 
-    if (!this.hasMoreHistory) return
-
     const log = this.feed._oplog
     const Log = log.constructor
 
-    const newLog = await Log.fromEntryCid(
-      this.feed._ipfs,
-      this.feed.identity,
-      log.tails[0].next[0],
-      {
-        logId: log.id,
-        access: this.feed.access,
-        length: log.values.length + amount,
-        exclude: log.values,
-        onProgressCallback: this.feed._onLoadProgress.bind(this.feed)
+    try {
+      const newLog = await Log.fromEntryCid(
+        this.feed._ipfs,
+        this.feed.identity,
+        log.tails[0].next[0],
+        {
+          logId: log.id,
+          access: this.feed.access,
+          length: log.values.length + amount,
+          exclude: log.values,
+          onProgressCallback: this.feed._onLoadProgress.bind(this.feed)
+        }
+      )
+
+      // await log.join(newLog)
+      await monkeyPatchedJoin(log, newLog)
+
+      await this.feed._updateIndex()
+
+      this.feed.events.emit('ready', this.feed.address.toString(), log.heads)
+    } catch (e) {
+      if (!log.tails[0].next[0]) {
+        console.warn('No more history to load!')
+      } else {
+        console.error(e.stack)
       }
-    )
-
-    // await log.join(newLog)
-    await monkeyPatchedJoin(log, newLog)
-
-    await this.feed._updateIndex()
-
-    this.feed.events.emit('ready', this.feed.address.toString(), log.heads)
+    }
   }
 }
 
