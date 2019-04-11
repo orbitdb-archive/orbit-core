@@ -11,7 +11,7 @@
   ],
   "dependencies": {
     "logplease": "~1.2.15",
-    "orbit-db": "github:orbitdb/orbit-db#186ba92a313d60febbfe9bf4e8c8cb288d0dd7c9",
+    "orbit-db": "github:orbitdb/orbit-db#master",
     "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#288dd62c6888cbef38bb46f15afe89bd4212555d"
   },
   "devDependencies": {
