@@ -76,7 +76,7 @@ class Orbit {
       Object.assign(
         {
           directory: this._options.directory,
-          identity: this.user.identity
+          identity: this._user.identity
         },
         this._options.dbOptions
       )
@@ -84,9 +84,9 @@ class Orbit {
 
     this._startPollingForPeers()
 
-    logger.info(`Connected to Orbit as "${this.user.profile.name}"`)
+    logger.info(`Connected to Orbit as "${this._user.profile.name}"`)
 
-    this.events.emit('connected', this.user)
+    this.events.emit('connected', this._user)
   }
 
   disconnect () {
@@ -150,13 +150,13 @@ class Orbit {
   async send (channelName, message, replyToHash) {
     if (!channelName || channelName === '') throw new Error('Channel must be specified')
     if (!message || message === '') throw new Error("Can't send an empty message")
-    if (!this.user) throw new Error("Something went wrong: 'user' is undefined")
+    if (!this._user) throw new Error("Something went wrong: 'user' is undefined")
 
     logger.debug(`Send message to #${channelName}: ${message}`)
 
     const data = {
       content: message.substring(0, 2048),
-      meta: { from: this.user.profile, type: 'text', ts: new Date().getTime() }
+      meta: { from: this._user.profile, type: 'text', ts: new Date().getTime() }
     }
 
     return this._postMessage(channelName, data)
@@ -224,7 +224,7 @@ class Orbit {
       content: upload.hash,
       meta: Object.assign(
         {
-          from: this.user.profile,
+          from: this._user.profile,
           type: upload.isDirectory ? 'directory' : 'file',
           ts: new Date().getTime()
         },
