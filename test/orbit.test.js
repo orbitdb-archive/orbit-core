@@ -1,14 +1,13 @@
+/* eslint-disable compat/compat */
 'use strict'
 
 const fs = require('fs')
 const rmrf = require('rimraf')
 const path = require('path')
-const assert = require('assert')
-const mapSeries = require('../src/promise-map-series')
-const Post = require('ipfs-post')
+const mapSeries = require('p-map-series')
 const IPFS = require('ipfs')
 const Orbit = require('../src/Orbit')
-const bl = require('bl')
+const { expect } = require('chai')
 
 // Mute logging
 require('logplease').setLogLevel('NONE')
@@ -19,746 +18,549 @@ const keystorePath = path.join(process.cwd(), '/test/keys')
 // Settings for the test ipfs daemons
 const config = require('./daemons.conf.js')
 
-// Default ipfs-daemon IPFS repo directory
-const defaultIpfsDirectory = './ipfs'
-
 // Orbit
 const defaultOrbitDirectory = path.join('./', '/orbit')
 const username = 'testrunner'
-let userId = 'QmXWWRTZzygRCnWP8sBcTuygreYBTaQR73zVpZvyxeuUqA'
 
 let ipfs, isJsIpfs
 
-describe('Orbit', function() {
-  this.timeout(60000)
-
+describe('Orbit', () => {
   let orbit
-  let channel = 'orbit-tests'
+  const channel = 'orbit-tests'
 
-  before(function (done) {
-    // rmrf.sync('./orbitdb')
+  before(done => {
     rmrf.sync(defaultOrbitDirectory)
     rmrf.sync(config.daemon1.repo)
     ipfs = new IPFS(config.daemon1)
-    ipfs.on('error', done)
-    ipfs.on('ready', () => {
-      // isJsIpfs = ipfs.constructor.name !== 'IpfsNativeDaemon'
-      // assert.equal(hasIpfsApiWithPubsub(ipfs), true)
-      done()
-    })
+    ipfs.on('error', console.log)
+    ipfs.on('ready', () => done())
   })
 
-  beforeEach(function (done) {
-    if(orbit) orbit.disconnect()
-    orbit = new Orbit(ipfs, { 
-      keystorePath: keystorePath, 
-      cachePath: './orbit/' + new Date().getTime().toString(),
+  beforeEach(async () => {
+    if (orbit) await orbit.disconnect()
+    orbit = new Orbit(ipfs, {
+      keystorePath: keystorePath,
+      cachePath: './orbit/' + new Date().getTime().toString()
     })
-    done()
   })
 
   after(async () => {
-    if(orbit) 
-      orbit.disconnect()
-
+    if (orbit) await orbit.disconnect()
     await ipfs.stop()
-    // rmrf.sync(config.daemon1.repo)
-    // rmrf.sync(config.daemon2.repo)
-    // rmrf.sync(defaultOrbitDirectory)
-    // rmrf.sync('./orbitdb')
   })
 
-  describe('constructor', function() {
+  describe('constructor', () => {
     it('creates an instance', () => {
-      assert.notEqual(orbit, null)
-      assert.notEqual(orbit._ipfs, null)
-      assert.equal(orbit._orbitdb, null)
-      assert.equal(orbit._options.maxHistory, -1)
-      assert.notEqual(orbit._options.cachePath, null)
-      assert.equal(Object.keys(orbit._channels).length, 0)
+      expect(orbit).to.not.equal(null)
+      expect(orbit._ipfs).to.not.equal(null)
+      expect(orbit._orbitdb).to.equal(null)
+      expect(orbit._options.maxHistory).to.equal(undefined)
+      expect(orbit._options.cachePath).to.not.equal(null)
+      expect(Object.keys(orbit._channels)).to.have.a.lengthOf(0)
     })
 
     it('creates an instance with options', () => {
-      const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
-      assert.equal(orbitNoCache._orbitdb, null)
-      assert.equal(orbitNoCache._options.maxHistory, 0)
-      assert.equal(orbitNoCache._options.cachePath, null)
-    })
-  })
-
-  describe('connect', function() {
-    it('connects to a network', (done) => {
-      orbit.connect(username)
-        .then((res) => {
-          assert.notEqual(orbit._orbitdb, null)
-          // assert.equal(orbit._orbitdb.events.listenerCount('data'), 1)
-          orbit.disconnect()
-          done()
-        })
-        .catch(done)
-    })
-
-    it('emits \'connected\' event when connected to a network', (done) => {
-      orbit.events.on('connected', (networkInfo, user) => {
-        assert.notEqual(networkInfo, null)
-        assert.notEqual(user, null)
-        // assert.equal(networkInfo.name, 'Orbit DEV Network')
-        assert.equal(user.name, username)
-        assert.equal(user.id, userId)
-        done()
+      const orbitNoCache = new Orbit(ipfs, {
+        cachePath: null,
+        maxHistory: 0,
+        keystorePath: keystorePath
       })
-      orbit.connect(username)
-    })
-
-    it('user is defined when connected', (done) => {
-      orbit.connect(username)
-        .then((res) => {
-          assert.notEqual(orbit.user, null)
-          assert.equal(orbit.user.id, userId)
-          assert.equal(orbit.user.name, username)
-          assert.notEqual(orbit.user.signKey, null)
-          orbit.disconnect()
-          done()
-        })
-        .catch(done)
+      expect(orbitNoCache._orbitdb).to.equal(null)
+      expect(orbitNoCache._options.maxHistory).to.equal(0)
+      expect(orbitNoCache._options.cachePath).to.equal(null)
     })
   })
 
-  describe('disconnect', function() {
-    it('disconnects from a network', (done) => {
-      orbit.connect(username)
-        .then((res) => {
-          orbit.disconnect()
-          assert.equal(orbit.orbitdb, null)
-          assert.equal(orbit.user, null)
-          assert.equal(Object.keys(orbit._channels).length, 0)
-          done()
-        })
-        .catch(done)
+  describe('connect', () => {
+    it('connects to a network', async () => {
+      await orbit.connect(username)
+      expect(orbit._orbitdb).to.not.equal(null)
+      await orbit.disconnect()
     })
 
-    it('emits \'disconnected\' event when disconnected from a network', (done) => {
-      orbit.connect(username)
-        .then(() => {
-          orbit.events.on('disconnected', (networkInfo, userInfo) => {
-            assert.equal(orbit.network, null)
-            assert.equal(orbit.user, null)
-            done()
-          })
-        })
-        .then(() => orbit.disconnect())
-        .catch(done)
+    it("emits 'connected' event when connected to a network", async () => {
+      orbit.events.on('connected', user => {
+        expect(user.constructor.name).to.equal('OrbitUser')
+        expect(user.profile.name).to.equal(username)
+      })
+      await orbit.connect(username)
+    })
+
+    it('user is defined when connected', async () => {
+      await orbit.connect(username)
+      expect(orbit._user).to.not.equal(null)
+      expect(orbit._user.profile.name).to.equal(username)
+      expect(orbit._user.identity._publicKey).to.not.equal(null)
+      await orbit.disconnect()
     })
   })
 
-  describe('join', function() {
-    beforeEach((done) => {
-      orbit.connect(username)
-        .then((res) => done())
-        .catch(done)
+  describe('disconnect', () => {
+    it('disconnects from a network', async () => {
+      await orbit.connect(username)
+      await orbit.disconnect()
+      expect(orbit._orbitdb).to.equal(null)
+      expect(orbit._user).to.equal(null)
+      expect(Object.keys(orbit._channels)).to.have.a.lengthOf(0)
     })
 
-    afterEach((done) => {
-      try {
-        orbit.disconnect()
-        done()
-      } catch (e) {
-        done(e)
-      }
+    it("emits 'disconnected' event when disconnected from a network", async () => {
+      orbit.events.on('disconnected', () =>
+        expect(Object.keys(orbit.events._events)[0]).to.equal('disconnected')
+      )
+      await orbit.connect(username)
+      await orbit.disconnect()
+    })
+  })
+
+  describe('join', () => {
+    beforeEach(async () => {
+      await orbit.connect(username)
     })
 
-    it('joins a new channel', (done) => {
-      orbit.join(channel)
-        .then((result) => {
-          console.log(channel)
-          const c = orbit.getChannel(channel)
-          assert.equal(result, true)
-          assert.notEqual(c, null)
-          assert.equal(Object.keys(orbit.channels).length, 1)
-          assert.equal(c.name, channel)
-          assert.equal(c.password, null)
-          assert.notEqual(c.feed, null)
-          done()
-        })
-        .catch(done)
+    afterEach(async () => {
+      await orbit.disconnect()
     })
 
-    it('joins an existing channel', () => {
-      return orbit.join(channel)
-        .then(() => orbit.join(channel))
-        .then((result) => {
-          const c = orbit.getChannel(channel)
-          assert.equal(result, false)
-          assert.equal(Object.keys(orbit.channels).length, 1)
-          assert.equal(c.name, channel)
-          assert.equal(c.password, null)
-          assert.notEqual(c.feed, null)
-        })
+    it('joins a new channel', async () => {
+      const joinedChannel = await orbit.join(channel)
+      const c = orbit._getChannelFeed(channel)
+      expect(joinedChannel.constructor.name).to.equal('Channel')
+      expect(Object.keys(orbit.channels)).to.have.a.lengthOf(1)
+      expect(c.dbname).to.equal(channel)
     })
 
-    it('joins another new channel', () => {
+    it('joins an existing channel', async () => {
+      await orbit.join(channel)
+      const joinedChannel = await orbit.join(channel)
+      const c = orbit._getChannelFeed(channel)
+      expect(joinedChannel.constructor.name).to.equal('Channel')
+      expect(Object.keys(orbit.channels)).to.have.a.lengthOf(1)
+      expect(c.dbname).to.equal(channel)
+    })
+
+    it('joins another new channel', async () => {
       const channel2 = 'test2'
-      return orbit.join(channel)
-        .then(() => orbit.join(channel2))
-        .then((result) => {
-          const c1 = orbit.getChannel(channel)
-          const c2 = orbit.getChannel(channel2)
-          assert.equal(result, true)
-          assert.equal(Object.keys(orbit.channels).length, 2)
-          assert.equal(c1.name, channel)
-          assert.equal(c1.password, null)
-          assert.notEqual(c1.feed, null)
-          assert.equal(c2.name, channel2)
-          assert.equal(c2.password, null)
-          assert.notEqual(c2.feed, null)
-        })
+      await orbit.join(channel)
+      const joinedChannel = await orbit.join(channel2)
+      const c1 = orbit._getChannelFeed(channel)
+      const c2 = orbit._getChannelFeed(channel2)
+      expect(joinedChannel.constructor.name).to.equal('Channel')
+      expect(Object.keys(orbit.channels)).to.have.a.lengthOf(2)
+      expect(c1.dbname).to.equal(channel)
+      expect(c2.dbname).to.equal(channel2)
     })
 
-    it('returns \'true\' when a new channel was joined', () => {
-      return orbit.join(channel).then((result) => {
-        assert.equal(result, true)
+    it('returns the channel when a new channel was joined', async () => {
+      const joinedChannel = await orbit.join(channel)
+      expect(joinedChannel.constructor.name).to.equal('Channel')
+    })
+
+    it('returns the channel when an existing channel was joined', async () => {
+      await orbit.join(channel)
+      const joinedChannel = await orbit.join(channel)
+      expect(joinedChannel.constructor.name).to.equal('Channel')
+    })
+
+    it("emits 'joined' event after joining a new channel", done => {
+      orbit.events.once('joined', () => done())
+      orbit.join(channel)
+    })
+
+    it("doesn't emit 'joined' event after joining an existing channel", async () => {
+      let eventFired = false
+      await orbit.join(channel)
+      orbit.events.on('joined', () => {
+        eventFired = true
       })
+      await orbit.join(channel)
+      expect(eventFired).to.equal(false)
     })
 
-    it('returns \'false\' when an excisting channel was joined', () => {
-      return orbit.join(channel)
-        .then(() => orbit.join(channel))
-        .then((result) => {
-          assert.equal(result, false)
-        })
-    })
-
-    it('emits \'joined\' event after joining a new channel', (done) => {
-      orbit.events.once('joined', (channelName) => {
-        const c = orbit.getChannel(channel)
-        assert.notEqual(channel, null)
-        assert.equal(channel, c.name)
-        assert.equal(channelName, c.name)
-        assert.equal(Object.keys(orbit.channels).length, 1)
-        assert.equal(c.name, channel)
-        assert.equal(c.password, null)
-        assert.notEqual(c.feed, null)
-        done()
-      })
-      orbit.join(channel).catch(done)
-    })
-
-    it('doesn\'t emit \'joined\' event after joining an existing channel', (done) => {
-      orbit.join(channel).then(() => {
-        setTimeout(() => done(), 1000)
-        orbit.events.on('joined', () => done(new Error("'joined' event was emitted")))
-        orbit.join(channel)
-      }).catch(done)
-    })
-
-    it('throws an error when channel is not specified', (done) => {
-      orbit.join()
-        .then((post) => done(new Error("Channel was not specified!")))
-        .catch((e) => {
-          assert.equal(e.toString(), `Channel not specified`)
-          done()
-        })
+    it('throws an error when channel is not specified', async () => {
+      let error = false
+      try {
+        await orbit.join()
+      } catch (e) {
+        error = e.toString()
+      }
+      expect(error).to.equal('Error: Channel not specified')
     })
   })
 
-  describe('leave', function() {
-    beforeEach((done) => {
-      orbit.connect(username)
-        .then((res) => done())
-        .catch(done)
+  describe('leave', () => {
+    beforeEach(async () => {
+      await orbit.connect(username)
     })
 
     it('leaves a channel', async () => {
       await orbit.join(channel)
       await orbit.leave(channel)
       const channels = orbit.channels
-      assert.equal(Object.keys(channels).length, 0)
-      assert.equal(channels[channel], null)
+      expect(Object.keys(channels)).to.have.a.lengthOf(0)
+      expect(channels[channel]).to.equal(undefined)
     })
 
-    it('emits \'left\' event after leaving channel', (done) => {
-      orbit.join(channel).then(() => {
-        orbit.events.on('left', (channelName) => {
-          assert.equal(channelName, channel)
-          assert.equal(Object.keys(orbit.channels).length, 0)
-          done()
-        })
-        orbit.leave(channel)
+    it("emits 'left' event after leaving channel", async () => {
+      await orbit.join(channel)
+      orbit.events.on('left', channelName => {
+        expect(channelName).to.equal(channel)
       })
+      await orbit.leave(channel)
+      expect(Object.keys(orbit.channels)).to.have.a.lengthOf(0)
     })
 
-    it('emits \'left\' event after calling leave if channels hasn\'t been joined', (done) => {
-      orbit.events.on('left', (channelName) => {
-        assert.equal(channelName, channel)
-          assert.equal(Object.keys(orbit.channels).length, 0)
-        done()
+    it("emits 'left' event after calling leave if channels hasn't been joined", async () => {
+      orbit.events.on('left', channelName => {
+        expect(channelName).to.equal(channel)
       })
-      orbit.leave(channel)
+      await orbit.leave(channel)
+      expect(Object.keys(orbit.channels)).to.have.a.lengthOf(0)
     })
   })
 
-  describe('getters', function() {
-
-    describe('defaults', function() {
+  describe('getters', () => {
+    describe('defaults', () => {
       it('no users', () => {
-        assert.equal(orbit.user, null)
+        expect(orbit._user).to.equal(null)
       })
       it('no network', () => {
-        assert.equal(orbit.network, null)
+        expect(orbit._orbitdb).to.equal(null)
       })
       it('no channels', () => {
-        assert.equal(Object.keys(orbit.channels).length, 0)
+        expect(Object.keys(orbit._channels)).to.have.a.lengthOf(0)
       })
       it('no peers', () => {
-        assert.equal(orbit.peers.length, 0)
+        expect(orbit._peers).to.have.a.lengthOf(0)
       })
     })
 
-    describe('return', function() {
-      beforeEach((done) => {
-        orbit.connect(username)
-          .then((res) => done())
-          .catch(done)
+    describe('return', () => {
+      beforeEach(async () => {
+        await orbit.connect(username)
       })
 
-      afterEach(() => {
-        orbit.disconnect()
+      afterEach(async () => {
+        await orbit.disconnect()
       })
 
       it('user', () => {
-        assert.notEqual(orbit.user, null)
-        assert.equal(orbit.user.name, username)
-        assert.equal(orbit.user.id, userId)
-      })
-
-      it('network', () => {
-        assert.equal(orbit.network, 'QmR28ET9zueMwXbmjYyszy5JqVQAwB8HSb1SxEQ8wcZb1L')
+        expect(orbit._user).to.not.equal(null)
+        expect(orbit._user.profile.name).to.equal(username)
       })
 
       it('peers', () => {
-        // We don't currently test that peers exists,
-        // we only test that the api is there
-        assert.notEqual(orbit.peers, null)
+        expect(orbit.peers).to.not.equal(null)
       })
 
-      describe('channels', function() {
-        it('returns a joined channel', (done) => {
-          orbit.join(channel).then(() => {
-            assert.equal(Object.keys(orbit.channels).length, 1)
-            assert.equal(orbit.getChannel(channel).name, channel)
-            done()
-          })
+      describe('channels', () => {
+        it('returns a joined channel', async () => {
+          await orbit.join(channel)
+          expect(Object.keys(orbit.channels)).to.have.a.lengthOf(1)
+          expect(orbit._getChannelFeed(channel).dbname).to.equal(channel)
         })
 
-        it('returns the channels in correct format', (done) => {
+        it('returns the channels in correct format', async () => {
           const channel2 = 'test2'
-          orbit.join(channel2).then(() => {
-            orbit.join(channel).then(() => {
-              const c = orbit.getChannel(channel)
-              assert.equal(Object.keys(orbit.channels).length, 2)
-              assert.equal(c.name, channel)
-              assert.equal(c.password, null)
-              // assert.equal(Object.prototype.isPrototypeOf(c.feed, EventStore), true)
-              done()
-            })
-          })
+          await orbit.join(channel2)
+          await orbit.join(channel)
+          const c = orbit._getChannelFeed(channel)
+          expect(Object.keys(orbit.channels)).to.have.a.lengthOf(2)
+          expect(c.dbname).to.equal(channel)
         })
       })
     })
   })
 
-  describe('send', function() {
-    beforeEach((done) => {
+  describe('send', () => {
+    beforeEach(async () => {
       orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0 })
-      orbit.connect(username)
-        .then((res) => done())
-        .catch(done)
+      await orbit.connect(username)
     })
 
-    afterEach(() => {
-      orbit.disconnect()
+    afterEach(async () => {
+      await orbit.disconnect()
     })
 
-    it('sends a message to a channel', (done) => {
+    it('sends a message to a channel', async () => {
       const content = 'hello1'
-      let message
-      orbit.join(channel, 0)
-        .then(() => orbit.send(channel, content))
-        .then((res) => message = res)
-        .then(() => orbit.get(channel))
-        .then((messages) => {
-          assert.equal(messages.length, 1)
-          assert.notEqual(messages[0].Hash, undefined)
-          assert.equal(messages[0].Hash.startsWith('Qm'), true)
-          assert.equal(messages[0].Post.content, content)
-          assert.equal(messages[0].Post.content, message.Post.content)
-          assert.notEqual(messages[0].Post.sig, null)
-          assert.notEqual(messages[0].Post.signKey, null)
-          assert.notEqual(messages[0].Post.meta, null)
-          assert.equal(messages[0].Post.meta.ts, message.Post.meta.ts)
-          assert.equal(messages[0].Post.meta.from.id, message.Post.meta.from.id)
-          done()
-        })
-        .catch(done)
+      await orbit.join(channel, 0)
+      await orbit.send(channel, content)
+      const feed = await orbit._getChannelFeed(channel)
+      const firstKey = Object.keys(feed._oplog._entryIndex)[0]
+      const firstEntry = feed._oplog._entryIndex[firstKey]
+      expect(feed._oplog._length).to.equal(1)
+      expect(firstKey.startsWith('zdpu'), true)
+      expect(firstEntry.payload.value.content, content)
     })
 
-    it('returns a Post', (done) => {
+    it('returns the oplog hash', async () => {
       const content = 'hello' + new Date().getTime()
-      orbit.join(channel)
-        .then(() => orbit.send(channel, content))
-        .then((message) => {
-          assert.notEqual(message.Post, null)
-          assert.equal(message.Hash.startsWith('Qm'), true)
-          assert.equal(message.Post.content, content)
-          assert.equal(Object.keys(message.Post.meta).length, 4)
-          assert.equal(message.Post.meta.type, "text")
-          assert.equal(message.Post.meta.size, 286)
-          assert.equal(message.Post.meta.from.id, userId)
-          assert.notEqual(message.Post.meta.ts, null)
-          done()
-        })
-        .catch(done)
+      await orbit.join(channel)
+      const oplogHash = await orbit.send(channel, content)
+      expect(oplogHash.startsWith('zdpu')).to.equal(true)
     })
 
-    it('Post was added to IPFS', (done) => {
-      const content = 'hello' + new Date().getTime()
-      orbit.join(channel)
-        .then(() => orbit.send(channel, content))
-        .then((data) => {
-          assert.equal(data.Post.content, content)
-          assert.equal(data.Post.meta.type, "text")
-          assert.equal(data.Post.meta.size, 286)
-          assert.notEqual(data.Post.meta.ts, null)
-          assert.equal(data.Post.meta.from.id, userId)
-          done()
-        })
-        .catch(done)
+    it('throws an error when channel is not specified', async () => {
+      let error = false
+      await orbit.join(channel)
+      try {
+        await orbit.send(null, 'hello')
+      } catch (e) {
+        error = e.toString()
+      }
+      expect(error).to.equal('Error: Channel must be specified')
     })
 
-    it('throws an error when channel is not specified', (done) => {
-      orbit.join(channel)
-        .then(() => orbit.send(null, 'hello'))
-        .catch((e) => {
-          assert.equal(e.toString(), `Channel must be specified`)
-          done()
-        })
-    })
-
-    it('throws an error when trying to send a message to channel that hasn\'t been joined', (done) => {
+    it("throws an error when trying to send a message to channel that hasn't been joined", async () => {
       const channel = 'test1'
       const content = 'hello1'
-      orbit.send(channel, content)
-        // .then((post) => done(new Error(`Not joined on #${channel} but the message was sent!`)))
-        .catch((e) => {
-          assert.equal(e.toString(), `Haven't joined #${channel}`)
-          done()
-        })
+      let error = false
+      try {
+        await orbit.send(channel, content)
+      } catch (e) {
+        error = e.toString()
+      }
+      expect(error).to.equal("TypeError: Cannot read property 'feed' of undefined")
     })
 
-    it('throws an error when trying to send an empty message', (done) => {
+    it('throws an error when trying to send an empty message', async () => {
       const content = ''
-      orbit.join(channel)
-        .then(() => orbit.send(channel, content))
-        .then((post) => done(new Error("Empty message was sent!")))
-        .catch((e) => {
-          assert.equal(e.toString(), `Can't send an empty message`)
-          done()
-        })
+      let error = false
+      await orbit.join(channel)
+      try {
+        await orbit.send(channel, content)
+      } catch (e) {
+        error = e.toString()
+      }
+      expect(error).to.equal("Error: Can't send an empty message")
     })
 
-    it('throws an error when message is not specified', (done) => {
-      orbit.join(channel, null)
-        .then(() => orbit.send(channel))
-        .then((post) => done(new Error("Empty message was sent!")))
-        .catch((e) => {
-          assert.equal(e.toString(), `Can't send an empty message`)
-          done()
-        })
+    it('throws an error when message is not specified', async () => {
+      let error = false
+      await orbit.join(channel)
+      try {
+        await orbit.send(channel)
+      } catch (e) {
+        error = e.toString()
+      }
+      expect(error).to.equal("Error: Can't send an empty message")
     })
   })
 
-  describe('get', function() {
+  describe('get', () => {
     before(() => {
       rmrf.sync(path.join(defaultOrbitDirectory, 'clean'))
     })
 
-    it('returns the latest message', (done) => {
+    it('returns the latest message', async () => {
       const ts = new Date().getTime()
       const content = 'hi' + ts
-      let message
 
-      const orbitNoCache = new Orbit(ipfs, { 
+      const orbitNoCache = new Orbit(ipfs, {
         cachePath: path.join(defaultOrbitDirectory, 'clean'),
         maxHistory: 0,
-        keystorePath: keystorePath,
+        keystorePath: keystorePath
       })
 
-      orbitNoCache.connect(username)
-        .then(() => orbitNoCache.join(channel))
-        .then(() => orbitNoCache.send(channel, content))
-        .then((res) => message = res)
-        .then(() => orbitNoCache.get(channel, null, null, 10))
-        .then((messages) => {
-          assert.equal(messages.length, 1)
-          assert.notEqual(messages[0].Hash, null)
-          assert.equal(messages[0].Hash.startsWith('Qm'), true)
-          assert.equal(messages[0].Post.content, content)
-          assert.equal(messages[0].Post.content, message.Post.content)
-          assert.notEqual(messages[0].Post.sig, null)
-          assert.notEqual(messages[0].Post.signKey, null)
-          assert.notEqual(messages[0].Post.meta, null)
-          assert.equal(messages[0].Post.meta.ts, message.Post.meta.ts)
-          assert.equal(messages[0].Post.meta.from.id, message.Post.meta.from.id)
-          done()
-        })
-        .catch(done)
+      await orbitNoCache.connect(username)
+      await orbitNoCache.join(channel)
+      const sentEntryHash = await orbitNoCache.send(channel, content)
+
+      const feed = orbitNoCache._getChannelFeed(channel)
+      const sentEntry = feed._oplog._entryIndex[sentEntryHash]
+
+      const firstKey = Object.keys(feed._oplog._entryIndex)[0]
+      const firstEntry = feed._oplog._entryIndex[firstKey]
+
+      expect(firstKey).to.equal(firstEntry.cid)
+      expect(Object.keys(feed._oplog._entryIndex)).to.have.a.lengthOf(1)
+      expect(firstKey.startsWith('zdpu')).to.equal(true)
+      expect(firstEntry.payload.value.content).to.equal(content)
+      expect(firstEntry.payload.value.content).to.equal(sentEntry.payload.value.content)
+      expect(firstEntry.sig).to.not.equal(null)
+      expect(firstEntry.key).to.not.equal(null)
     })
 
-    it('returns all messages in the right order', (done) => {
-      const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
+    it('returns all messages in the right order', async () => {
+      const orbitNoCache = new Orbit(ipfs, {
+        cachePath: null,
+        maxHistory: 0,
+        keystorePath: keystorePath
+      })
       const content = 'hello'
       const channel2 = 'channel-' + new Date().getTime()
-      let result
 
-      orbitNoCache.connect(username)
-        .then(() => orbitNoCache.join(channel2))
-        .then(() => {
-          return mapSeries([1, 2, 3, 4, 5], (i) => orbitNoCache.send(channel2, content + i), { concurrency: 1 })
-        })
-        .then((res) => result = res)
-        .then(() => orbitNoCache.get(channel2, null, null, -1))
-        .then((messages) => {
-          assert.equal(messages.length, 5)
-          messages.forEach((msg, index) => {
-            assert.notEqual(msg.Hash, null)
-            assert.equal(msg.Hash.startsWith('Qm'), true)
-            assert.equal(msg.Post.content, content + (index + 1))
-            assert.notEqual(msg.Post.sig, null)
-            assert.notEqual(msg.Post.signKey, null)
-            assert.notEqual(msg.Post.meta, null)
-            orbitNoCache.disconnect()
-          })
-          done()
-        })
-        .catch(done)
+      await orbitNoCache.connect(username)
+      await orbitNoCache.join(channel2)
+
+      await mapSeries([1, 2, 3, 4, 5], i => orbitNoCache.send(channel2, content + i), {
+        concurrency: 1
+      })
+
+      const feed = await orbitNoCache._getChannelFeed(channel2)
+
+      expect(Object.keys(feed._oplog._entryIndex)).to.have.a.lengthOf(5)
+
+      Object.values(feed._oplog._entryIndex).forEach((entry, index) => {
+        expect(entry.cid).to.not.equal(null)
+        expect(entry.cid.startsWith('zdpu')).to.equal(true)
+        expect(entry.payload.value.content).to.equal(content + (index + 1))
+        expect(entry.sig).to.not.equal(null)
+        expect(entry.key).to.not.equal(null)
+        expect(entry.payload.value.meta).to.not.equal(null)
+      })
+
+      await orbitNoCache.disconnect()
     })
 
-    it('throws an error if trying to get from a channel that hasn\'t been joined', (done) => {
-      const orbitNoCache = new Orbit(ipfs, { cachePath: null, maxHistory: 0, keystorePath: keystorePath })
-      orbitNoCache.connect(username)
-        .then(() => orbitNoCache.get(channel))
-        .then((res) => done(new Error("Got result but not joined on channel!")))
-        .catch((e) => {
-          assert.equal(e, `Haven't joined #${channel}`)
-          orbitNoCache.disconnect()
-          done()
-        })
+    it("throws an error if trying to get from a channel that hasn't been joined", async () => {
+      const orbitNoCache = new Orbit(ipfs, {
+        cachePath: null,
+        maxHistory: 0,
+        keystorePath: keystorePath
+      })
+      let error = false
+
+      await orbitNoCache.connect(username)
+
+      try {
+        await orbitNoCache._getChannelFeed(channel)
+      } catch (e) {
+        error = true
+      }
+
+      expect(error).to.equal(true)
+
+      await orbitNoCache.disconnect()
     })
   })
 
-  describe('addFile', function() {
-    beforeEach((done) => {
-      orbit.connect(username)
-        .then(() => done())
-        .catch(done)
+  describe('addFile', () => {
+    beforeEach(async () => {
+      await orbit.connect(username)
     })
 
-    afterEach(() => {
-      orbit.disconnect()
+    afterEach(async () => {
+      await orbit.disconnect()
     })
 
-    it('adds a file', (done) => {
+    it('adds a file', async () => {
       const filename = 'mocha.opts'
-      const filePath = path.join(process.cwd(), '/test' , filename)
+      const filePath = path.join(process.cwd(), '/test', filename)
+      const fileStats = fs.statSync(filePath)
+      const fileBuffer = Buffer.from(fs.readFileSync(filePath))
+      const file = {
+        filename: filename,
+        buffer: fileBuffer,
+        meta: { mimeType: fileStats.type, size: fileStats.size }
+      }
 
-      // const file = isJsIpfs
-      //   ? { filename: filename, buffer: Buffer(fs.readFileSync(filePath)) }
-      //   : { filename: filePath }
-      const file = { filename: filename, content: Buffer(fs.readFileSync(filePath)) }
+      await orbit.join(channel)
+      const entryHash = await orbit.addFile(channel, file)
+      const feed = orbit._getChannelFeed(channel)
+      const entry = feed._oplog._entryIndex[entryHash]
 
-      orbit.join(channel)
-        .then(() => orbit.addFile(channel, file))
-        .then((res) => {
-          assert.notEqual(res.Post, null)
-          assert.equal(res.Post instanceof Post.Types.File, true)
-          assert.equal(res.Hash.startsWith('Qm'), true)
-          assert.equal(res.Post.name, filename)
-          assert.equal(res.Post.size, -1)
-          assert.equal(Object.keys(res.Post.meta).length, 4)
-          assert.equal(res.Post.meta.size, 335)
-          assert.equal(res.Post.meta.from.id, userId)
-          assert.notEqual(res.Post.meta.ts, null)
-          done()
-        })
-        .catch(done)
+      expect(entry.payload.value.meta.type).to.equal('file')
+      expect(entryHash.startsWith('zdpu')).to.equal(true)
+      expect(entry.payload.value.meta.name).to.equal(filename)
+      expect(Object.keys(entry.payload.value.meta)).to.have.a.lengthOf(6)
+      expect(entry.payload.value.meta.size).to.equal(fileStats.size)
+      expect(entry.payload.value.meta.ts).to.not.equal(null)
     })
 
-    it('adds a directory recursively', (done) => {
-      // skip if js-ipfs
-      if (isJsIpfs)
-        return done()
-
-      const directory = 'test'
-      const p = path.join(process.cwd(), directory)
-      const dir = { filename: directory, directory: p }
-
-      orbit.join(channel)
-        .then(() => orbit.addFile(channel, dir))
-        .then((res) => {
-          assert.notEqual(res.Post, null)
-          assert.equal(res.Post instanceof Post.Types.Directory, true)
-          assert.equal(res.Hash.startsWith('Qm'), true)
-          assert.equal(res.Post.name, directory)
-          // assert.equal(res.Post.size === 409363 || res.Post.size === 409449, true)
-          assert.equal(Object.keys(res.Post.meta).length, 4)
-          // assert.equal(res.Post.meta.size === 409363 || res.Post.meta.size === 409449, true)
-          assert.equal(res.Post.meta.from.id, userId)
-          assert.notEqual(res.Post.meta.ts, null)
-          done()
-        })
-        .catch(done)
+    it('throws an error if channel parameter is not given', async () => {
+      let error = false
+      await orbit.join(channel)
+      try {
+        await orbit.addFile(null, { filename: 'empty' })
+      } catch (e) {
+        error = e.message.toString()
+      }
+      expect(error).to.equal('Channel not specified')
     })
 
-    it.skip('throws an error if file not found', (done) => {
-      // skip if js-ipfs
-      // if (isJsIpfs)
-      //   return done()
-
-      const filename = 'non-existent'
-      const filePath = path.join(process.cwd(), '/test' , filename)
-      orbit.join(channel)
-        .then(() => orbit.addFile(channel, { filename: filePath }))
-        .catch((e) => {
-          assert.equal(e.message.toString(), `ENOENT: no such file or directory, stat '${filePath}'`)
-          done()
-        })
+    it('throws an error if neither filename or directory parameter is not given', async () => {
+      let error = false
+      await orbit.join(channel)
+      try {
+        await orbit.addFile(channel, null)
+      } catch (e) {
+        error = e.message.toString()
+      }
+      expect(error).to.equal('Filename or directory not specified')
     })
 
-
-    it('throws an error if channel parameter is not given', (done) => {
-      orbit.join(channel)
-        .then(() => orbit.addFile(null, { filename: 'empty' }))
-        .catch((e) => {
-          assert.equal(e, "Channel not specified")
-          done()
-        })
-    })
-
-    it('throws an error if neither filename or directory parameter is not given', (done) => {
-      orbit.join(channel)
-        .then(() => orbit.addFile(channel, null))
-        .catch((e) => {
-          assert.equal(e, "Filename or directory not specified")
-          done()
-        })
-    })
-
-    it('throws an error if not joined on channel', (done) => {
-      orbit.addFile(channel, { filename: 'hello' })
-        .catch((e) => {
-          assert.equal(e, `Haven't joined #${channel}`)
-          done()
-        })
+    it('throws an error if not joined on channel', async () => {
+      let error = false
+      try {
+        await orbit.addFile(channel, { filename: 'hello' })
+      } catch (e) {
+        error = e.message.toString()
+      }
+      expect(error).to.equal("Cannot read property 'feed' of undefined")
     })
   })
 
-  describe('getFile', function() {
+  describe('getFile', () => {
     const filename = 'mocha.opts'
-    const filePath = path.join(process.cwd(), '/test' , filename)
+    const filePath = path.join(process.cwd(), '/test', filename)
     let hash
 
-    beforeEach((done) => {
-      // const file = isJsIpfs
-      //   ? { filename: filename, buffer: Buffer(fs.readFileSync(filePath)) }
-      //   : { filename: filePath }
-      const file = { filename: filename, content: Buffer(fs.readFileSync(filePath)) }
-      orbit.connect(username)
-        .then(() => orbit.join(channel))
-        .then(() => orbit.addFile(channel, file))
-        .then((res) => hash = res.Post.hash)
-        .then(() => done())
-        .catch(done)
+    beforeEach(async () => {
+      const fileStats = fs.statSync(filePath)
+      const file = {
+        filename: filename,
+        buffer: Buffer.from(fs.readFileSync(filePath)),
+        meta: { mimeType: fileStats.type, size: fileStats.size }
+      }
+      await orbit.connect(username)
+      await orbit.join(channel)
+      hash = await orbit.addFile(channel, file)
     })
 
-    afterEach(() => {
-      orbit.disconnect()
+    afterEach(async () => {
+      await orbit.disconnect()
     })
 
-    it('returns the contents of a file', (done) => {
-      const res = orbit.getFile(hash)
+    it('returns the contents of a file', async () => {
+      const res = await orbit.getFile(hash)
       let data = ''
-      res.on('data', (chunk) => data += chunk)
+      let buffer = new Uint8Array(0)
+      res.on('error', () => {})
+      res.on('data', chunk => {
+        const tmp = new Uint8Array(buffer.length + chunk.length)
+        tmp.set(buffer)
+        tmp.set(chunk, buffer.length)
+        buffer = tmp
+        console.log(buffer)
+        data += chunk
+      })
       res.on('end', () => {
         const contents = fs.readFileSync(filePath)
-        assert.equal(data, contents.toString())
-        done()
+        expect(data).to.equal(contents.toString())
       })
     })
   })
 
-  describe.skip('getDirectory', function() {
-    const directory = 'test'
-    const filePath = path.join(process.cwd(), directory)
-    let hash
-
-    beforeEach((done) => {
-      // skip with js-ipfs
-      if (isJsIpfs)
-        return done()
-
-      orbit.connect(username)
-        .then(() => orbit.join(channel))
-        .then(() => orbit.addFile(channel, { filename: "test directory", directory: filePath }))
-        .then((res) => hash = res.Post.hash)
-        .then(() => done())
-        .catch(done)
+  describe('events', () => {
+    beforeEach(async () => {
+      await orbit.connect(username)
+      await orbit.join(channel + '.events')
     })
 
-    afterEach(() => {
-      orbit.disconnect()
+    afterEach(async () => {
+      await orbit.disconnect()
     })
 
-    it('returns a directory', (done) => {
-      // skip with js-ipfs
-      if (isJsIpfs)
-        return done()
-
-      orbit.getDirectory(hash)
-        .then((res) => {
-          assert.notEqual(res, null)
-          assert.equal(res.length, 4)
-          assert.equal(Object.keys(res[0]).length, 4)
-          done()
-        })
-        .catch(done)
-    })
-  })
-
-  describe('events', function() {
-    beforeEach((done) => {
-      orbit.events.on('joined', () => done())
-      orbit.connect(username)
-        .then(() => orbit.join(channel + '.events'))
-        .catch(done)
-    })
-
-    afterEach(() => {
-      orbit.disconnect()
-    })
-
-    it('emits \'message\'', (done) => {
+    it("emits 'message'", async () => {
       orbit.events.on('message', (channelName, message) => {
-        try {
-          assert.equal(channelName, channel + '.events')
-          assert.notEqual(message, undefined)
-          assert.equal(message.content, 'hello')
-          assert.equal(message.hash.startsWith('Qm'), true)
-          done()
-        } catch (e) {
-          done(e)
-        }
+        expect(channelName).to.equal(channel + '.events')
+        expect(message).to.not.equal(undefined)
+        expect(message.content).to.equal('hello')
+        expect(message.hash.startsWith('Qm')).to.equal(true)
       })
-      orbit.send(channel + '.events', 'hello')
+      await orbit.send(channel + '.events', 'hello')
     })
   })
 })
