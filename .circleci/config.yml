@@ -1,0 +1,5 @@
+version: 2
+jobs:
+  test:
+    docker:
+      - circleci/node:8.2.0
