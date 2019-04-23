@@ -1,32 +1,9 @@
 version: 2
 jobs:
   build:
-    working_directory: ~/orbitdb/orbit-core
-    parallelism: 1
-    shell: /bin/bash --login
-    environment:
-      CIRCLE_ARTIFACTS: /tmp/circleci-artifacts
-      CIRCLE_TEST_REPORTS: /tmp/circleci-test-results
     docker:
-      - image: circleci/build-image:ubuntu-14.04-XXL-upstart-1189-5614f37
-        command: /sbin/init
+      - image: circleci/node:10
     steps:
-      # The following `checkout` command checks out your code to your working directory. In 1.0 we did this implicitly. In 2.0 you can choose where in the course of a job your code should be checked out.
       - checkout
-      - run: mkdir -p $CIRCLE_ARTIFACTS $CIRCLE_TEST_REPORTS
-      - run:
-          working_directory: ~/orbitdb/orbit-core
-          command: nvm install 10.13.0 && nvm alias default 10.13.0
-      - run: if [ -z "${NODE_ENV:-}" ]; then export NODE_ENV=test; fi
-      - run: export PATH="~/orbitdb/orbit-core/node_modules/.bin:$PATH"
-      - run: rm -rf node_modules/
       - run: npm install
       - run: npm test
-      # Save test results
-      - store_test_results:
-          path: /tmp/circleci-test-results
-      # Save artifacts
-      - store_artifacts:
-          path: /tmp/circleci-artifacts
-      - store_artifacts:
-          path: /tmp/circleci-test-results
