@@ -11,8 +11,8 @@
   ],
   "dependencies": {
     "logplease": "~1.2.15",
-    "orbit-db": "github:orbitdb/orbit-db#66099dcda13bc58fb3c5202116c4723e1be76f1d",
-    "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#09461d2b186fb80e6c6b94f7ad1b203a74fcf15a"
+    "orbit-db": "github:orbitdb/orbit-db#f63f9d1768fb024f8953916aaae45d47e237a24c",
+    "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#6172880e6c63fbbf3071a8dba692b5771a2032a5"
   },
   "devDependencies": {
     "@babel/core": "^7.1.6",
