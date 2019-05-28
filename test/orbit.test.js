@@ -373,7 +373,7 @@ describe('Orbit', () => {
       const firstKey = Object.keys(feed._oplog._entryIndex)[0]
       const firstEntry = feed._oplog._entryIndex[firstKey]
 
-      expect(firstKey).to.equal(firstEntry.cid)
+      expect(firstKey).to.equal(firstEntry.hash)
       expect(Object.keys(feed._oplog._entryIndex)).to.have.a.lengthOf(1)
       expect(firstKey.startsWith('zdpu')).to.equal(true)
       expect(firstEntry.payload.value.content).to.equal(content)
@@ -403,8 +403,8 @@ describe('Orbit', () => {
       expect(Object.keys(feed._oplog._entryIndex)).to.have.a.lengthOf(5)
 
       Object.values(feed._oplog._entryIndex).forEach((entry, index) => {
-        expect(entry.cid).to.not.equal(null)
-        expect(entry.cid.startsWith('zdpu')).to.equal(true)
+        expect(entry.hash).to.not.equal(null)
+        expect(entry.hash.startsWith('zdpu')).to.equal(true)
         expect(entry.payload.value.content).to.equal(content + (index + 1))
         expect(entry.sig).to.not.equal(null)
         expect(entry.key).to.not.equal(null)
