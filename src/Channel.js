@@ -84,7 +84,7 @@ class Channel extends EventEmitter {
     const Log = log.constructor
 
     try {
-      const newLog = await Log.fromEntryCid(
+      const newLog = await Log.fromEntryHash(
         this.feed._ipfs,
         this.feed.identity,
         log.tails[0].next[0],
