@@ -115,7 +115,7 @@ class Channel extends EventEmitter {
   async loadMore (amount = 10) {
     try {
       const olderEntries = this.feed._oplog.iterator({
-        lt: this.feed._oplog.tails[0].next[0],
+        lte: this.feed._oplog.tails[0].next[0],
         amount: amount
       })
       await this.feed._oplog.join(olderEntries)
