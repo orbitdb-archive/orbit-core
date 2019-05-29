@@ -426,7 +426,7 @@ describe('Orbit', () => {
       await orbitCached.connect(username)
       await orbitCached.join(channel2)
       await mapSeries(
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
         i => orbitCached.send(channel2, content + i),
         {
           concurrency: 1
@@ -437,16 +437,18 @@ describe('Orbit', () => {
       await orbitCached.connect(username)
       await orbitCached.join(channel2)
       const channel = orbitCached.channels[channel2]
-      await mapSeries(
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        i => orbitCached.send(channel2, content + i),
-        {
-          concurrency: 1
-        }
-      )
-      await channel.loadMore(10)
 
-      expect(Object.keys(channel.feed._oplog._entryIndex)).to.have.a.lengthOf(1)
+      let loadNum = 1
+
+      await new Promise((resolve, reject) => {
+        channel.on('load.done', () => {
+          expect(Object.keys(channel.feed._oplog._entryIndex)).to.have.a.lengthOf(10 * loadNum)
+          loadNum++
+          resolve()
+        })
+        channel.load(10)
+      })
+      await channel.loadMore(10)
     })
 
     it("throws an error if trying to get from a channel that hasn't been joined", async () => {

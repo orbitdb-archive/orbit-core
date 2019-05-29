@@ -76,7 +76,7 @@ class Channel extends EventEmitter {
     return this.orbit.addFile(this.channelName, file)
   }
 
-  /* async loadMore (amount = 10) {
+  async loadMore (amount = 10) {
     // TODO: This is a bit hacky, but at the time of writing is the only way
     // to load more entries
 
@@ -110,10 +110,11 @@ class Channel extends EventEmitter {
         console.error(e.stack)
       }
     }
-  } */
+  }
 
-  async loadMore (amount = 10) {
+  async loadMore2 (amount = 10) {
     try {
+      console.log(this.feed._oplog)
       const olderEntries = this.feed._oplog.iterator({
         lte: this.feed._oplog.tails[0].next[0],
         amount: amount
