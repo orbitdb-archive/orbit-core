@@ -76,7 +76,7 @@ class Channel extends EventEmitter {
     return this.orbit.addFile(this.channelName, file)
   }
 
-  async loadMore (amount = 10) {
+  /* async loadMore (amount = 10) {
     // TODO: This is a bit hacky, but at the time of writing is the only way
     // to load more entries
 
@@ -105,6 +105,24 @@ class Channel extends EventEmitter {
       this.feed.events.emit('ready', this.feed.address.toString(), log.heads)
     } catch (e) {
       if (!log.tails[0].next[0]) {
+        console.warn('No more history to load!')
+      } else {
+        console.error(e.stack)
+      }
+    }
+  } */
+
+  async loadMore (amount = 10) {
+    try {
+      const olderEntries = this.feed._oplog.iterator({
+        lt: this.feed._oplog.tails[0].next[0],
+        amount: amount
+      })
+      await this.feed._oplog.join(olderEntries)
+      await this.feed._updateIndex()
+      this.feed.events.emit('ready', this.feed.address.toString(), this.feed._oplog.heads)
+    } catch (e) {
+      if (!this.feed._oplog.tails[0].next[0]) {
         console.warn('No more history to load!')
       } else {
         console.error(e.stack)

@@ -89,12 +89,13 @@ class Orbit {
     this.events.emit('connected', this.user)
   }
 
-  disconnect () {
+  async disconnect () {
     if (!this._orbitdb) return
 
     logger.warn('Disconnected')
 
-    this._orbitdb.disconnect()
+    await this._orbitdb.disconnect()
+    this._connecting = false
     this._orbitdb = null
     this._user = null
     this._channels = {}

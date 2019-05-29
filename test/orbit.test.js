@@ -414,6 +414,41 @@ describe('Orbit', () => {
       await orbitNoCache.disconnect()
     })
 
+    it('is able to load older messages', async () => {
+      const orbitCached = new Orbit(ipfs, {
+        cachePath: './orbit',
+        maxHistory: 0,
+        keystorePath: keystorePath
+      })
+      const content = 'hello'
+      const channel2 = 'channel-' + new Date().getTime()
+
+      await orbitCached.connect(username)
+      await orbitCached.join(channel2)
+      await mapSeries(
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+        i => orbitCached.send(channel2, content + i),
+        {
+          concurrency: 1
+        }
+      )
+      await orbitCached.disconnect()
+
+      await orbitCached.connect(username)
+      await orbitCached.join(channel2)
+      const channel = orbitCached.channels[channel2]
+      await mapSeries(
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        i => orbitCached.send(channel2, content + i),
+        {
+          concurrency: 1
+        }
+      )
+      await channel.loadMore(10)
+
+      expect(Object.keys(channel.feed._oplog._entryIndex)).to.have.a.lengthOf(1)
+    })
+
     it("throws an error if trying to get from a channel that hasn't been joined", async () => {
       const orbitNoCache = new Orbit(ipfs, {
         cachePath: null,
