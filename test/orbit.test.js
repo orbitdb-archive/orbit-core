@@ -21,11 +21,12 @@ const config = require('./daemons.conf.js')
 // Orbit
 const defaultOrbitDirectory = path.join('./', '/orbit')
 const username = 'testrunner'
+const username2 = 'runtester'
 
 let ipfs, isJsIpfs
 
 describe('Orbit', () => {
-  let orbit
+  let orbit, orbit2
   const channel = 'orbit-tests'
 
   before(done => {
@@ -274,12 +275,15 @@ describe('Orbit', () => {
 
   describe('send', () => {
     beforeEach(async () => {
-      orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0 })
+      orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0, cachePath: null })
       await orbit.connect(username)
+      orbit2 = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0, cachePath: null })
+      await orbit2.connect(username2)
     })
 
     afterEach(async () => {
       await orbit.disconnect()
+      await orbit2.disconnect()
     })
 
     it('sends a message to a channel', async () => {
@@ -292,6 +296,37 @@ describe('Orbit', () => {
       expect(feed._oplog._length).to.equal(1)
       expect(firstKey.startsWith('zdpu'), true)
       expect(firstEntry.payload.value.content, content)
+    })
+
+    it('other user receives sent messages in the same order they were sent', async () => {
+      await orbit2.join(channel, 0)
+      await orbit.join(channel, 0)
+
+      const msgHashes = []
+
+      const numberArray = [...Array(100).keys()].map(x => `${x}`)
+      await mapSeries(
+        numberArray,
+        async i => {
+          const msgHash = await orbit.send(channel, i)
+          msgHashes.push(msgHash)
+        },
+        {
+          concurrency: 1
+        }
+      )
+
+      const channel2 = orbit2.channels[channel]
+      await new Promise((resolve, reject) => {
+        channel2.on('load.done', () => {
+          expect(Object.keys(channel2.feed._oplog._entryIndex)).to.have.a.lengthOf(100)
+          Object.keys(channel2.feed._oplog._entryIndex).forEach((hash, index) => {
+            expect(msgHashes[index]).to.equal(hash)
+          })
+          resolve()
+        })
+        channel2.load(100)
+      })
     })
 
     it('returns the oplog hash', async () => {
@@ -412,6 +447,43 @@ describe('Orbit', () => {
       })
 
       await orbitNoCache.disconnect()
+    })
+
+    it('is able to load older messages', async () => {
+      const orbitCached = new Orbit(ipfs, {
+        cachePath: './orbit',
+        maxHistory: 0,
+        keystorePath: keystorePath
+      })
+      const content = 'hello'
+      const channel2 = 'channel-' + new Date().getTime()
+
+      await orbitCached.connect(username)
+      await orbitCached.join(channel2)
+      await mapSeries(
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+        i => orbitCached.send(channel2, content + i),
+        {
+          concurrency: 1
+        }
+      )
+      await orbitCached.disconnect()
+
+      await orbitCached.connect(username)
+      await orbitCached.join(channel2)
+      const channel = orbitCached.channels[channel2]
+
+      let loadNum = 1
+
+      await new Promise((resolve, reject) => {
+        channel.on('load.done', () => {
+          expect(Object.keys(channel.feed._oplog._entryIndex)).to.have.a.lengthOf(10 * loadNum)
+          loadNum++
+          resolve()
+        })
+        channel.load(10)
+      })
+      await channel.loadMore(10)
     })
 
     it("throws an error if trying to get from a channel that hasn't been joined", async () => {

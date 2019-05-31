@@ -96,7 +96,6 @@ class Channel extends EventEmitter {
           onProgressCallback: this.feed._onLoadProgress.bind(this.feed)
         }
       )
-
       // await log.join(newLog)
       await monkeyPatchedJoin(log, newLog)
 
