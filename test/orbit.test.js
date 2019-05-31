@@ -275,9 +275,9 @@ describe('Orbit', () => {
 
   describe('send', () => {
     beforeEach(async () => {
-      orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0 })
+      orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0, cachePath: null })
       await orbit.connect(username)
-      orbit2 = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0 })
+      orbit2 = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0, cachePath: null })
       await orbit2.connect(username2)
     })
 
@@ -298,21 +298,34 @@ describe('Orbit', () => {
       expect(firstEntry.payload.value.content, content)
     })
 
-    it('other user receives the sent message', async () => {
-      const content = 'hello1'
-
-      await orbit.join(channel, 0)
+    it('other user receives sent messages in the same order they were sent', async () => {
       await orbit2.join(channel, 0)
-      await orbit.send(channel, content)
+      await orbit.join(channel, 0)
+
+      const msgHashes = []
+
+      const numberArray = [...Array(100).keys()].map(x => `${x}`)
+      await mapSeries(
+        numberArray,
+        async i => {
+          const msgHash = await orbit.send(channel, i)
+          msgHashes.push(msgHash)
+        },
+        {
+          concurrency: 1
+        }
+      )
 
       const channel2 = orbit2.channels[channel]
-
       await new Promise((resolve, reject) => {
         channel2.on('load.done', () => {
-          expect(Object.keys(channel2.feed._oplog._entryIndex)).to.have.a.lengthOf(1)
+          expect(Object.keys(channel2.feed._oplog._entryIndex)).to.have.a.lengthOf(100)
+          Object.keys(channel2.feed._oplog._entryIndex).forEach((hash, index) => {
+            expect(msgHashes[index]).to.equal(hash)
+          })
           resolve()
         })
-        channel2.load(1)
+        channel2.load(100)
       })
     })
 
