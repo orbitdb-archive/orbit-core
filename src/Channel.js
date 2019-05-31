@@ -96,7 +96,6 @@ class Channel extends EventEmitter {
           onProgressCallback: this.feed._onLoadProgress.bind(this.feed)
         }
       )
-
       // await log.join(newLog)
       await monkeyPatchedJoin(log, newLog)
 
@@ -105,25 +104,6 @@ class Channel extends EventEmitter {
       this.feed.events.emit('ready', this.feed.address.toString(), log.heads)
     } catch (e) {
       if (!log.tails[0].next[0]) {
-        console.warn('No more history to load!')
-      } else {
-        console.error(e.stack)
-      }
-    }
-  }
-
-  async loadMore2 (amount = 10) {
-    try {
-      console.log(this.feed._oplog)
-      const olderEntries = this.feed._oplog.iterator({
-        lte: this.feed._oplog.tails[0].next[0],
-        amount: amount
-      })
-      await this.feed._oplog.join(olderEntries)
-      await this.feed._updateIndex()
-      this.feed.events.emit('ready', this.feed.address.toString(), this.feed._oplog.heads)
-    } catch (e) {
-      if (!this.feed._oplog.tails[0].next[0]) {
         console.warn('No more history to load!')
       } else {
         console.error(e.stack)

@@ -21,11 +21,12 @@ const config = require('./daemons.conf.js')
 // Orbit
 const defaultOrbitDirectory = path.join('./', '/orbit')
 const username = 'testrunner'
+const username2 = 'runtester'
 
 let ipfs, isJsIpfs
 
 describe('Orbit', () => {
-  let orbit
+  let orbit, orbit2
   const channel = 'orbit-tests'
 
   before(done => {
@@ -276,10 +277,13 @@ describe('Orbit', () => {
     beforeEach(async () => {
       orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0 })
       await orbit.connect(username)
+      orbit2 = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0 })
+      await orbit2.connect(username2)
     })
 
     afterEach(async () => {
       await orbit.disconnect()
+      await orbit2.disconnect()
     })
 
     it('sends a message to a channel', async () => {
@@ -292,6 +296,24 @@ describe('Orbit', () => {
       expect(feed._oplog._length).to.equal(1)
       expect(firstKey.startsWith('zdpu'), true)
       expect(firstEntry.payload.value.content, content)
+    })
+
+    it('other user receives the sent message', async () => {
+      const content = 'hello1'
+
+      await orbit.join(channel, 0)
+      await orbit2.join(channel, 0)
+      await orbit.send(channel, content)
+
+      const channel2 = orbit2.channels[channel]
+
+      await new Promise((resolve, reject) => {
+        channel2.on('load.done', () => {
+          expect(Object.keys(channel2.feed._oplog._entryIndex)).to.have.a.lengthOf(1)
+          resolve()
+        })
+        channel2.load(1)
+      })
     })
 
     it('returns the oplog hash', async () => {
