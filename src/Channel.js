@@ -45,8 +45,14 @@ class Channel extends EventEmitter {
 
   // Called while loading from IPFS (receiving new messages)
   _onReplicateProgress (...args) {
-    this.emit('replicate.progress')
-    this._onNewEntry(args[2])
+    const log = this.feed._oplog
+    const { compare } = log.clock.constructor
+
+    // Compare received log entry to currently oldest
+    if (log._entryIndex.length < 10 || compare(log.tails[0].clock, log.get(args[2]).clock) <= 0) {
+      this.emit('replicate.progress')
+      this._onNewEntry(args[2])
+    }
   }
 
   _onReady () {
