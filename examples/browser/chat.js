@@ -104,7 +104,7 @@ function onJoinedChannel (channelName, channel) {
     if (event.keyCode === 13) sendMessage(channel)
   })
 
-  channel.load()
+  channel.load(10)
 }
 
 function sendMessage (channel) {
