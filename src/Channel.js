@@ -47,9 +47,8 @@ class Channel extends EventEmitter {
   _onReplicateProgress (...args) {
     const log = this.feed._oplog
     const { compare } = log.clock.constructor
-
     // Compare received log entry to currently oldest
-    if (log._entryIndex.length < 10 || compare(log.tails[0].clock, log.get(args[2]).clock) <= 0) {
+    if (compare(log.tails[0].clock, args[2].clock) < 0) {
       this.emit('replicate.progress')
       this._onNewEntry(args[2])
     }
