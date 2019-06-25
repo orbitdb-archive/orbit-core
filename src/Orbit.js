@@ -69,16 +69,17 @@ class Orbit {
     if (this._connecting) throw new Error('Already connecting')
     else this._connecting = true
 
-    logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
+    // logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
 
     if (typeof credentials === 'string') {
+      logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
       credentials = { type: 'orbitdb', id: credentials }
     }
 
     const identity = await Identities.createIdentity(credentials)
 
     const profile = {
-      name: credentials.id,
+      name: credentials.username,
       location: 'Earth',
       image: null
     }
