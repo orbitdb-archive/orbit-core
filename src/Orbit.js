@@ -5,7 +5,13 @@ const EventEmitter = require('events').EventEmitter
 const OrbitDB = require('orbit-db')
 const Logger = require('logplease')
 
-const IdentityProviders = require('./IdentityProviders')
+const Identities = require('orbit-db-identity-provider')
+const EthIdentityProvider = require('./IdentityProviders/identityprovider-ethereum')
+
+Identities.addIdentityProvider(EthIdentityProvider)
+
+const OrbitUser = require('./orbit-user')
+
 const Channel = require('./Channel')
 
 const logger = Logger.create('Orbit', { color: Logger.Colors.Green })
@@ -66,10 +72,18 @@ class Orbit {
     logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
 
     if (typeof credentials === 'string') {
-      credentials = { provider: 'orbitdb', username: credentials }
+      credentials = { type: 'orbitdb', id: credentials }
     }
 
-    this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
+    const identity = await Identities.createIdentity(credentials)
+
+    const profile = {
+      name: credentials.id,
+      location: 'Earth',
+      image: null
+    }
+
+    this._user = new OrbitUser(identity, profile)
 
     this._orbitdb = await OrbitDB.createInstance(
       this._ipfs,

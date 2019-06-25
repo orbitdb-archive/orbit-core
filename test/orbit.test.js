@@ -23,7 +23,7 @@ const defaultOrbitDirectory = path.join('./', '/orbit')
 const username = 'testrunner'
 const username2 = 'runtester'
 
-let ipfs, isJsIpfs
+let ipfs
 
 describe('Orbit', () => {
   let orbit, orbit2
