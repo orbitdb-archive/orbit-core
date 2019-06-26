@@ -6,9 +6,9 @@ const OrbitDB = require('orbit-db')
 const Logger = require('logplease')
 
 const Identities = require('orbit-db-identity-provider')
-const EthIdentityProvider = require('./IdentityProviders/identityprovider-ethereum')
+const MetamaskIdentityProvider = require('./IdentityProviders/purser-metamask-identity-provider')
 
-Identities.addIdentityProvider(EthIdentityProvider)
+Identities.addIdentityProvider(MetamaskIdentityProvider)
 
 const OrbitUser = require('./orbit-user')
 
