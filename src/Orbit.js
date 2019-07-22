@@ -71,7 +71,9 @@ class Orbit {
 
     // logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
 
-    if (typeof credentials === 'string') {
+    const defaultIdentityProvider = typeof credentials === 'string'
+
+    if (defaultIdentityProvider) {
       logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
       credentials = { type: 'orbitdb', id: credentials }
     }
@@ -79,7 +81,7 @@ class Orbit {
     const identity = await Identities.createIdentity(credentials)
 
     const profile = {
-      name: credentials.username,
+      name: defaultIdentityProvider ? credentials : credentials.username,
       location: 'Earth',
       image: null
     }

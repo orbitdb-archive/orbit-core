@@ -82,7 +82,7 @@ describe('Orbit', () => {
     it("emits 'connected' event when connected to a network", async () => {
       orbit.events.on('connected', user => {
         expect(user.constructor.name).to.equal('OrbitUser')
-        expect(user.profile.name).to.equal(username)
+        expect(user.profile.name.id).to.equal(username)
       })
       await orbit.connect(username)
     })
@@ -90,7 +90,7 @@ describe('Orbit', () => {
     it('user is defined when connected', async () => {
       await orbit.connect(username)
       expect(orbit._user).to.not.equal(null)
-      expect(orbit._user.profile.name).to.equal(username)
+      expect(orbit._user.profile.name.id).to.equal(username)
       expect(orbit._user.identity._publicKey).to.not.equal(null)
       await orbit.disconnect()
     })
@@ -247,7 +247,7 @@ describe('Orbit', () => {
 
       it('user', () => {
         expect(orbit._user).to.not.equal(null)
-        expect(orbit._user.profile.name).to.equal(username)
+        expect(orbit._user.profile.name.id).to.equal(username)
       })
 
       it('peers', () => {
