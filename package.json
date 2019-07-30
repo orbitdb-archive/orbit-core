@@ -10,6 +10,7 @@
     "not dead"
   ],
   "dependencies": {
+    "@colony/purser-metamask": "^2.2.0",
     "logplease": "~1.2.15",
     "orbit-db": "github:orbitdb/orbit-db#3194b4553aec08e1227501b1af816ac1762921ef",
     "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#434519348be9cbf1cb6b8e0526ce20091b5ca316"
