@@ -12,8 +12,8 @@
   "dependencies": {
     "@colony/purser-metamask": "^2.2.0",
     "logplease": "~1.2.15",
-    "orbit-db": "0.21.4",
-    "orbit-db-identity-provider": "0.1.6"
+    "orbit-db": "orbitdb/orbit-db#fix/createInstance",
+    "orbit-db-identity-provider": "next"
   },
   "devDependencies": {
     "@babel/core": "^7.1.6",
@@ -34,7 +34,7 @@
     "eslint-plugin-node": "^8.0.0",
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-standard": "^4.0.0",
-    "ipfs": "^0.35.0",
+    "ipfs": "~0.36.4",
     "mocha": "^5.2.0",
     "p-each-series": "^1.0.0",
     "p-map": "^2.0.0",

@@ -23,7 +23,7 @@ const defaultOrbitDirectory = path.join('./', '/orbit')
 const username = 'testrunner'
 const username2 = 'runtester'
 
-let ipfs
+let ipfs, ipfs2, isJsIpfs
 
 describe('Orbit', () => {
   let orbit, orbit2
@@ -34,7 +34,11 @@ describe('Orbit', () => {
     rmrf.sync(config.daemon1.repo)
     ipfs = new IPFS(config.daemon1)
     ipfs.on('error', console.log)
-    ipfs.on('ready', () => done())
+    ipfs.on('ready', () => {
+      ipfs2 = new IPFS(config.daemon2)
+      ipfs2.on('error', console.log)
+      ipfs2.on('ready', () => done())
+    })
   })
 
   beforeEach(async () => {
@@ -48,6 +52,7 @@ describe('Orbit', () => {
   after(async () => {
     if (orbit) await orbit.disconnect()
     await ipfs.stop()
+    await ipfs2.stop()
   })
 
   describe('constructor', () => {
@@ -275,10 +280,16 @@ describe('Orbit', () => {
 
   describe('send', () => {
     beforeEach(async () => {
-      orbit = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0, cachePath: null })
-      await orbit.connect(username)
-      orbit2 = new Orbit(ipfs, { keystorePath: keystorePath, maxHistory: 0, cachePath: null })
-      await orbit2.connect(username2)
+      const p1 = path.join(keystorePath, '/orbit1')
+      const p2 = path.join(keystorePath, '/orbit2')
+      try {
+        orbit = new Orbit(ipfs, { directory: p1, maxHistory: 0 })
+        await orbit.connect(username)
+        orbit2 = new Orbit(ipfs2, { directory: p2, maxHistory: 0 })
+        await orbit2.connect(username2)
+      } catch(e) {
+        console.error(e)
+      }
     })
 
     afterEach(async () => {
@@ -291,11 +302,11 @@ describe('Orbit', () => {
       await orbit.join(channel, 0)
       await orbit.send(channel, content)
       const feed = await orbit._getChannelFeed(channel)
-      const firstKey = Object.keys(feed._oplog._entryIndex)[0]
-      const firstEntry = feed._oplog._entryIndex[firstKey]
-      expect(feed._oplog._length).to.equal(1)
-      expect(firstKey.startsWith('zdpu'), true)
-      expect(firstEntry.payload.value.content, content)
+      const all = feed.iterator({ limit: -1 }).collect()
+      const first = all[0]
+      expect(all.length).to.equal(1)
+      expect(first.hash.startsWith('zdpu'), true)
+      expect(first.payload.value.content, content)
     })
 
     it('other user receives sent messages in the same order they were sent', async () => {
@@ -318,12 +329,21 @@ describe('Orbit', () => {
 
       const channel2 = orbit2.channels[channel]
       await new Promise((resolve, reject) => {
-        channel2.on('load.done', () => {
-          expect(Object.keys(channel2.feed._oplog._entryIndex)).to.have.a.lengthOf(100)
-          Object.keys(channel2.feed._oplog._entryIndex).forEach((hash, index) => {
-            expect(msgHashes[index]).to.equal(hash)
-          })
-          resolve()
+        channel2.on('replicate.done', async () => {
+          try {
+            const messages = channel2.feed.iterator({ limit: -1 }).collect()
+            // expect(channel2.feed._oplog.length).to.equal(100)
+            if (messages.length === 100) {
+              expect(msgHashes).to.have.a.lengthOf(100)
+              expect(messages).to.have.a.lengthOf(100)
+              messages.forEach((m, index) => {
+                expect(msgHashes[index]).to.equal(m.hash)
+              })
+              resolve()
+            }
+          } catch (e) {
+            reject(e)
+          }
         })
         channel2.load(100)
       })
@@ -384,7 +404,11 @@ describe('Orbit', () => {
   })
 
   describe('get', () => {
-    before(() => {
+    // before(() => {
+    //   rmrf.sync(path.join(defaultOrbitDirectory, 'clean'))
+    // })
+
+    beforeEach(async () => {
       rmrf.sync(path.join(defaultOrbitDirectory, 'clean'))
     })
 
@@ -403,18 +427,21 @@ describe('Orbit', () => {
       const sentEntryHash = await orbitNoCache.send(channel, content)
 
       const feed = orbitNoCache._getChannelFeed(channel)
-      const sentEntry = feed._oplog._entryIndex[sentEntryHash]
+      const messages = feed.iterator({ limit: -1 }).collect()
+      const sentEntry = feed.get(sentEntryHash) //feed._oplog._entryIndex[sentEntryHash]
 
-      const firstKey = Object.keys(feed._oplog._entryIndex)[0]
-      const firstEntry = feed._oplog._entryIndex[firstKey]
+      const firstKey = messages[0].hash//Object.keys(feed._oplog._entryIndex)[0]
+      const firstEntry = messages[0]//feed._oplog._entryIndex[firstKey]
 
       expect(firstKey).to.equal(firstEntry.hash)
-      expect(Object.keys(feed._oplog._entryIndex)).to.have.a.lengthOf(1)
+      // expect(Object.keys(feed._oplog._entryIndex)).to.have.a.lengthOf(1)
+      expect(messages.length).to.equal(1)
       expect(firstKey.startsWith('zdpu')).to.equal(true)
       expect(firstEntry.payload.value.content).to.equal(content)
       expect(firstEntry.payload.value.content).to.equal(sentEntry.payload.value.content)
       expect(firstEntry.sig).to.not.equal(null)
       expect(firstEntry.key).to.not.equal(null)
+      await orbitNoCache.disconnect()
     })
 
     it('returns all messages in the right order', async () => {
@@ -434,10 +461,12 @@ describe('Orbit', () => {
       })
 
       const feed = await orbitNoCache._getChannelFeed(channel2)
+      const messages = feed.iterator({ limit: -1 }).collect()
 
-      expect(Object.keys(feed._oplog._entryIndex)).to.have.a.lengthOf(5)
+      expect(messages).to.have.a.lengthOf(5)
 
-      Object.values(feed._oplog._entryIndex).forEach((entry, index) => {
+      // Object.values(feed._oplog._entryIndex).forEach((entry, index) => {
+      messages.forEach((entry, index) => {
         expect(entry.hash).to.not.equal(null)
         expect(entry.hash.startsWith('zdpu')).to.equal(true)
         expect(entry.payload.value.content).to.equal(content + (index + 1))
@@ -449,7 +478,7 @@ describe('Orbit', () => {
       await orbitNoCache.disconnect()
     })
 
-    it('is able to load older messages', async () => {
+    it.skip('is able to load older messages', async () => {
       const orbitCached = new Orbit(ipfs, {
         cachePath: './orbit',
         maxHistory: 0,
@@ -476,10 +505,13 @@ describe('Orbit', () => {
       let loadNum = 1
 
       await new Promise((resolve, reject) => {
-        channel.on('load.done', () => {
-          expect(Object.keys(channel.feed._oplog._entryIndex)).to.have.a.lengthOf(10 * loadNum)
+        channel.on('load.done', async () => {
+          const messages = channel.feed.iterator({ limit: -1 }).collect()
+          // expect(Object.keys(channel.feed._oplog._entryIndex)).to.have.a.lengthOf(10 * loadNum)
+          expect(messages).to.have.a.lengthOf(10 * loadNum)
           loadNum++
           resolve()
+          await orbitCached.disconnect()
         })
         channel.load(10)
       })
@@ -531,7 +563,7 @@ describe('Orbit', () => {
       await orbit.join(channel)
       const entryHash = await orbit.addFile(channel, file)
       const feed = orbit._getChannelFeed(channel)
-      const entry = feed._oplog._entryIndex[entryHash]
+      const entry = feed.get(entryHash)// feed._oplog._entryIndex[entryHash]
 
       expect(entry.payload.value.meta.type).to.equal('file')
       expect(entryHash.startsWith('zdpu')).to.equal(true)

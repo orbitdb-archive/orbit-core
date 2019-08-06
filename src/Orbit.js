@@ -78,24 +78,28 @@ class Orbit {
       credentials = { type: 'orbitdb', id: credentials }
     }
 
-    const identity = await Identities.createIdentity(credentials)
-
     const profile = {
       name: defaultIdentityProvider ? credentials : credentials.username,
       location: 'Earth',
       image: null
     }
 
+    const identityKeysPath = path.join('./orbitdb', this._options.directory || '', 'keystore') || credentials.keystorePath
+    const newCredentials = Object.assign({}, credentials, { identityKeysPath })
+
+    const identity = await Identities.createIdentity(newCredentials)
+
     this._user = new OrbitUser(identity, profile)
 
     this._orbitdb = await OrbitDB.createInstance(
       this._ipfs,
       Object.assign(
+        {},
+        this._options.dbOptions,
         {
           directory: this._options.directory,
           identity: this.user.identity
-        },
-        this._options.dbOptions
+        }
       )
     )
 
