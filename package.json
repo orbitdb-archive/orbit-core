@@ -12,8 +12,8 @@
   "dependencies": {
     "@colony/purser-metamask": "^2.2.0",
     "logplease": "~1.2.15",
-    "orbit-db": "github:orbitdb/orbit-db#6021c382df54850620e8a9da076202768f2d1144",
-    "orbit-db-identity-provider": "github:orbitdb/orbit-db-identity-provider#434519348be9cbf1cb6b8e0526ce20091b5ca316"
+    "orbit-db": "0.21.4",
+    "orbit-db-identity-provider": "0.1.6"
   },
   "devDependencies": {
     "@babel/core": "^7.1.6",
