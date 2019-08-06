@@ -91,11 +91,12 @@ class Orbit {
     this._orbitdb = await OrbitDB.createInstance(
       this._ipfs,
       Object.assign(
+        {},
+        this._options.dbOptions,
         {
           directory: this._options.directory,
           identity: this.user.identity
-        },
-        this._options.dbOptions
+        }
       )
     )
 

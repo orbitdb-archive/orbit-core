@@ -76,10 +76,18 @@ class Channel extends EventEmitter {
     return this.orbit.addFile(this.channelName, file)
   }
 
-  async loadMore (amount = 10) {
+  async loadMore (amount = 64) {
+    // const last = this.feed.iterator({ limit: -1 }).collect().slice(0, amount)
+    // console.log("get tails")
+    const tails = this.feed._oplog.tails.sort(this.feed._oplog._sortFn)
+    // const tail = tails.slice(-1)[0]
+    // const tail = tails[0]
+    console.log("TAILS:", tails)
+    // TODO: sort / slice tails
+    await this.feed.load(amount, { fromHashes: tails.slice(-amount) })
+    /*
     // TODO: This is a bit hacky, but at the time of writing is the only way
     // to load more entries
-
     const log = this.feed._oplog
     const Log = log.constructor
 
@@ -109,6 +117,7 @@ class Channel extends EventEmitter {
         console.error(e.stack)
       }
     }
+    */
   }
 }
 

@@ -17,4 +17,9 @@ clean:
 	rm -rf node_modules/
 	rm package-lock.json
 
+clean-dependencies: clean
+	rm -f package-lock.json;
+
+rebuild: | clean-dependencies build
+
 .PHONY: test
