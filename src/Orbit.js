@@ -2,10 +2,11 @@
 
 const path = require('path')
 const EventEmitter = require('events').EventEmitter
+
 const OrbitDB = require('orbit-db')
+const Identities = require('orbit-db-identity-provider')
 const Logger = require('logplease')
 
-const IdentityProviders = require('./IdentityProviders')
 const Channel = require('./Channel')
 
 const logger = Logger.create('Orbit', { color: Logger.Colors.Green })
@@ -66,20 +67,28 @@ class Orbit {
     logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
 
     if (typeof credentials === 'string') {
-      credentials = { provider: 'orbitdb', username: credentials }
+      credentials = { username: credentials }
     }
 
-    this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
+    if (!credentials.username) throw new Error("'username' not specified")
+
+    this._user = {
+      identity: await Identities.createIdentity({
+        id: credentials.username
+      }),
+      profile: {
+        name: credentials.username,
+        location: 'Earth',
+        image: null
+      }
+    }
 
     this._orbitdb = await OrbitDB.createInstance(
       this._ipfs,
-      Object.assign(
-        {
-          directory: this._options.directory,
-          identity: this.user.identity
-        },
-        this._options.dbOptions
-      )
+      Object.assign(this._options.dbOptions, {
+        directory: this._options.directory,
+        identity: this.user.identity
+      })
     )
 
     this._startPollingForPeers()
