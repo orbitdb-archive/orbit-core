@@ -3,7 +3,6 @@
 const EventEmitter = require('events').EventEmitter
 
 const OrbitDB = require('orbit-db')
-const Identities = require('orbit-db-identity-provider')
 const Logger = require('logplease')
 
 const Channel = require('./Channel')
@@ -19,7 +18,7 @@ class Orbit {
     this.events = new EventEmitter()
     this._ipfs = ipfs
     this._orbitdb = null
-    this._user = null
+    this._userProfile = null
     this._channels = {}
     this._peers = []
     this._pollPeersTimer = null
@@ -30,8 +29,8 @@ class Orbit {
 
   /* Public properties */
 
-  get user () {
-    return this._user
+  get userProfile () {
+    return this._userProfile
   }
 
   get channels () {
@@ -49,49 +48,36 @@ class Orbit {
   /* Public methods */
 
   static async create (ipfs, options) {
-    const { credentials } = options
-    delete options['credentials']
     const node = new Orbit(ipfs, options)
-    await node.connect(credentials)
+    await node.connect()
     return node
   }
 
-  async connect (credentials = {}) {
+  async connect (username) {
     if (this._orbitdb) throw new Error('Already connected')
     if (this._connecting) throw new Error('Already connecting')
     else this._connecting = true
 
-    logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
-
-    if (typeof credentials === 'string') {
-      credentials = { username: credentials }
+    if (username) {
+      if (typeof username !== 'string') throw new Error("'username' must be a string")
+      this._options.id = username
     }
 
-    if (!credentials.username) throw new Error("'username' not specified")
-
-    this._user = {
-      identity: await Identities.createIdentity({
-        id: credentials.username
-      }),
-      profile: {
-        name: credentials.username,
-        location: 'Earth',
-        image: null
-      }
+    this._userProfile = {
+      name: this._options.id,
+      location: 'Earth',
+      image: null
     }
 
-    this._orbitdb = await OrbitDB.createInstance(
-      this._ipfs,
-      Object.assign(this._options, {
-        identity: this.user.identity
-      })
-    )
+    logger.info(`Connecting to Orbit as "${this.userProfile.name}""`)
+
+    this._orbitdb = await OrbitDB.createInstance(this._ipfs, this._options)
 
     this._startPollingForPeers()
 
-    logger.info(`Connected to Orbit as "${this.user.profile.name}"`)
+    logger.info(`Connected to Orbit as "${this.userProfile.name}"`)
 
-    this.events.emit('connected', this.user)
+    this.events.emit('connected')
   }
 
   async disconnect () {
@@ -102,7 +88,7 @@ class Orbit {
     await this._orbitdb.disconnect()
     this._connecting = false
     this._orbitdb = null
-    this._user = null
+    this._userProfile = null
     this._channels = {}
 
     if (this._pollPeersTimer) clearInterval(this._pollPeersTimer)
@@ -156,13 +142,13 @@ class Orbit {
   async send (channelName, message, replyToHash) {
     if (!channelName || channelName === '') throw new Error('Channel must be specified')
     if (!message || message === '') throw new Error("Can't send an empty message")
-    if (!this.user) throw new Error("Something went wrong: 'user' is undefined")
+    if (!this.userProfile) throw new Error("Something went wrong: 'userProfile' is undefined")
 
     logger.debug(`Send message to #${channelName}: ${message}`)
 
     const data = {
       content: message.substring(0, 2048),
-      meta: { from: this.user.profile, type: 'text', ts: new Date().getTime() }
+      meta: { from: this.userProfile, type: 'text', ts: new Date().getTime() }
     }
 
     return this._postMessage(channelName, data)
@@ -230,7 +216,7 @@ class Orbit {
       content: upload.hash,
       meta: Object.assign(
         {
-          from: this.user.profile,
+          from: this.userProfile,
           type: upload.isDirectory ? 'directory' : 'file',
           ts: new Date().getTime()
         },
