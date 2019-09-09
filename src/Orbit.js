@@ -48,6 +48,14 @@ class Orbit {
 
   /* Public methods */
 
+  static async create (ipfs, options) {
+    const { credentials } = options
+    delete options['credentials']
+    const node = new Orbit(ipfs, options)
+    await node.connect(credentials)
+    return node
+  }
+
   async connect (credentials = {}) {
     if (this._orbitdb) throw new Error('Already connected')
     if (this._connecting) throw new Error('Already connecting')
