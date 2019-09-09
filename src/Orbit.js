@@ -1,6 +1,5 @@
 'use strict'
 
-const path = require('path')
 const EventEmitter = require('events').EventEmitter
 
 const OrbitDB = require('orbit-db')
@@ -15,18 +14,8 @@ Logger.setLogLevel(
   process.env.NODE_ENV === 'development' ? Logger.LogLevels.DEBUG : Logger.LogLevels.ERROR
 )
 
-const getAppPath = () =>
-  process.type && process.env.ENV !== 'dev' ? process.resourcesPath + '/app/' : process.cwd()
-
-const defaultOptions = {
-  dbOptions: {
-    directory: path.join(getAppPath(), '/orbit/orbitdb') // path to orbit-db file
-  },
-  channelOptions: {}
-}
-
 class Orbit {
-  constructor (ipfs, options = {}) {
+  constructor (ipfs, options) {
     this.events = new EventEmitter()
     this._ipfs = ipfs
     this._orbitdb = null
@@ -34,7 +23,7 @@ class Orbit {
     this._channels = {}
     this._peers = []
     this._pollPeersTimer = null
-    this._options = Object.assign({}, defaultOptions, options)
+    this._options = options || {}
     this._joiningQueue = {}
     this._connecting = false
   }
@@ -85,8 +74,7 @@ class Orbit {
 
     this._orbitdb = await OrbitDB.createInstance(
       this._ipfs,
-      Object.assign(this._options.dbOptions, {
-        directory: this._options.directory,
+      Object.assign(this._options, {
         identity: this.user.identity
       })
     )
@@ -114,7 +102,7 @@ class Orbit {
     this.events.emit('disconnected')
   }
 
-  join (channelName) {
+  join (channelName, options) {
     if (!channelName || channelName === '') {
       return Promise.reject(new Error('Channel not specified'))
     } else if (this._channels[channelName]) {
@@ -123,16 +111,16 @@ class Orbit {
       this._joiningQueue[channelName] = new Promise(resolve => {
         logger.debug(`Join #${channelName}`)
 
-        const options = Object.assign(
+        const channelOptions = Object.assign(
           {
             accessController: {
               write: ['*'] // Allow anyone to write to the channel
             }
           },
-          this._options.channelOptions
+          options || {}
         )
 
-        this._orbitdb.log(channelName, options).then(feed => {
+        this._orbitdb.log(channelName, channelOptions).then(feed => {
           this._channels[channelName] = new Channel(this, channelName, feed)
           logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
           this.events.emit('joined', channelName, this._channels[channelName])
