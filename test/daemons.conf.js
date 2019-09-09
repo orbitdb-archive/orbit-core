@@ -18,11 +18,11 @@ module.exports = {
         webRTCStar: {
           Enabled: false
         }
-      },
-    },    
+      }
+    }
   },
   daemon1: {
-    repo: './orbit/tests/daemon1/ipfs',
+    repo: './orbit-tests/ipfs/daemon1',
     start: true,
     EXPERIMENTAL: {
       pubsub: true
@@ -42,11 +42,11 @@ module.exports = {
         webRTCStar: {
           Enabled: false
         }
-      },
-    },
+      }
+    }
   },
   daemon2: {
-    repo: './orbit/tests/daemon2/ipfs',
+    repo: './orbit-tests/ipfs/daemon2',
     start: true,
     EXPERIMENTAL: {
       pubsub: true
@@ -66,7 +66,7 @@ module.exports = {
         webRTCStar: {
           Enabled: false
         }
-      },
-    },
-  },
+      }
+    }
+  }
 }
