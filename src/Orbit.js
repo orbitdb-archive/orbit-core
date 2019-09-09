@@ -37,6 +37,10 @@ class Orbit {
     return this._channels
   }
 
+  get identity () {
+    return this._orbitdb ? this._orbitdb.identity : null
+  }
+
   get peers () {
     return this._peers
   }
@@ -77,7 +81,7 @@ class Orbit {
 
     logger.info(`Connected to Orbit as "${this.userProfile.name}"`)
 
-    this.events.emit('connected')
+    this.events.emit('connected', this.userProfile)
   }
 
   async disconnect () {
