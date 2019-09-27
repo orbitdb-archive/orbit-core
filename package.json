@@ -11,7 +11,7 @@
   ],
   "dependencies": {
     "logplease": "~1.2.15",
-    "orbit-db": "github:orbitdb/orbit-db#fix/createInstance"
+    "orbit-db": "github:orbitdb/orbit-db#master"
   },
   "devDependencies": {
     "@babel/core": "^7.1.6",
