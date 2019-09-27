@@ -57,6 +57,11 @@
     "url": "https://github.com/orbitdb/orbit-core/issues"
   },
   "readme": "README.md",
-  "author": "Haad",
-  "license": "MIT"
+  "author": "Haad <haad@haja.io>",
+  "license": "MIT",
+  "localMaintainers": [
+    "haad <haad@haja.io>",
+    "shamb0t <shams@haja.io>",
+    "hajamark <mark@haja.io>"
+  ]
 }
