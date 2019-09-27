@@ -1,6 +1,7 @@
 --reporter spec
 --ui bdd
---timeout 5000
+--timeout 10000
 --colors
 --recursive
 --bail
+--exit

@@ -3,7 +3,7 @@
     <meta charset="utf-8">
   </head>
   <body>
-    <h1 id="channel">Orbit</h1>
+    <h1 id="channel">Orbit Chat</h1>
     <div id="peersCount"></div>
     <br/>
     <div id="messages">Loading...</div>
@@ -17,132 +17,8 @@
     <button id="send" type="button">Send</button>
     <button id="send2" type="button">Send Greeting</button>
 
-    <script type="text/javascript" src="lib/orbit.min.js" charset="utf-8"></script>
-    <script type="text/javascript" src="lib/ipfs-browser-daemon.min.js" charset="utf-8"></script>
-
-    <script type="text/javascript">
-      window.LOG="debug"
-      function formatTimestamp(timestamp) {
-        const safeTime = (time) => ("0" + time).slice(-2)
-        const date = new Date(timestamp)
-        return safeTime(date.getHours()) + ":" + safeTime(date.getMinutes()) + ":" + safeTime(date.getSeconds())
-      }
-
-      const channelNameElement = document.getElementById("channel")
-      const messagesElement = document.getElementById("messages")
-      const usernameElement = document.getElementById("username")
-      const userField = document.getElementById("user")
-      const connectButton = document.getElementById("connect")
-      const messageField = document.getElementById("message")
-      const sendButton = document.getElementById("send")
-      const sendGreetingButton = document.getElementById("send2")
-      const peersElm = document.getElementById("peersCount")
-
-      let username = "Anonymous" + (new Date().getTime()).toString().slice(-4)
-      const channel  = 'orbit-browser-example'      
-      const ipfs = new IpfsDaemon({
-        IpfsDataDir: '/orbit-browser-example',
-        SignalServer: 'star-signal.cloud.ipfs.team', // IPFS dev server
-      })
-
-      function handleError(e) {
-        console.error(e.stack)
-        elm.innerHTML = e.message  
-      }
-
-      ipfs.on('error', (e) => handleError(e))
-
-      ipfs.on('ready', () => {
-        let orbit
-
-        // Setup Orbit
-        const options = {
-          maxHistory: 10, 
-          cachePath: username + '/orbit-db',
-        }
-
-        const send = () => {
-          orbit.send(channel, messageField.value)
-          messageField.value = null
-        }
-
-        const send2 = () => {
-          const creatures = ['👻', '🐙', '🐷', '🐬', '🐞', '🐈', '🙉', '🐸', '🐓']
-          const idx = Math.floor(Math.random() * creatures.length)
-          orbit.send(channel, "Greetings! " + creatures[idx])
-        }
-
-        const connect = () => {
-          messagesElement.innerHTML = ''
-          
-          if (orbit && orbit.network) {
-            connectButton.removeEventListener('click', connect)
-            sendGreetingButton.removeEventListener('click', send2)
-            sendButton.removeEventListener('click', send)
-            orbit.leave(channel)
-            orbit.disconnect()
-            username = userField.value
-          }
-
-          orbit = new Orbit(ipfs, options)
-
-          const updateMessages = () => {
-            orbit.get(channel, null, null, 10)
-              .then((messages) => {
-                const history = messages.sort((a, b) => a.Post.meta.ts > b.Post.meta.ts)
-                  .map((message) => `${formatTimestamp(message.Post.meta.ts)} < ${message.Post.meta.from.name}> ${message.Post.content}<br/>`).join("\n")
-                messagesElement.innerHTML = history
-                usernameElement.innerHTML = username
-              })            
-          }
-          // Handle new messages
-          orbit.events.on('message', (channel, message) => updateMessages())
-          orbit.events.on('synced', (channel, messages) => {
-            console.log("Synced")
-            updateMessages()
-          })
-
-          // Connect        
-          orbit.connect(username)
-            .then(() => {
-              connectButton.addEventListener('click', connect)
-              userField.value = username
-              return orbit.join(channel)
-            })
-            .then(() => {
-              channelNameElement.innerHTML = "#" + channel
-              console.log(`Joined #${channel}`)    
-
-              setInterval(() => {
-                ipfs.pubsub.peers(channel)
-                  .then((peers) => peersElm.innerHTML = "Peers: " + (peers ? peers.length : 0))
-              }, 1000)
-
-              // Get the channel's database and wait for the history to be loaded
-              const feed = orbit.channels[channel].feed
-
-              feed.events.on('ready', (name) => {
-                messagesElement.innerHTML = ''
-                // Send a new message to the channel
-                setTimeout(() => {
-                  orbit.send(channel, `/me has joined ${channel}`)
-                }, 2000)
-              })
-
-              sendButton.addEventListener('click', send)
-              messageField.addEventListener('keyup', (event) => {
-                if (event.keyCode == 13)
-                  send()
-              })
-              sendGreetingButton.addEventListener('click', send2)
-            })
-            .catch((e) => {
-              console.error(e)
-            })
-        }
-
-        connect()
-      })
-    </script>
+    <script src="https://unpkg.com/ipfs/dist/index.min.js"></script>
+    <script type="text/javascript" src="./lib/orbit.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="./chat.js" charset="utf-8"></script>
   </body>
 </html>

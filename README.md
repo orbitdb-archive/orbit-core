@@ -4,29 +4,31 @@
 [![CircleCI Status](https://circleci.com/gh/orbitdb/orbit-core.svg?style=shield)](https://circleci.com/gh/orbitdb/orbit-core)
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/orbitdb/Lobby)
 
->  Communication protocol on IPFS
+> Communication protocol on IPFS
 
 Orbit is a serverless, distributed, p2p communication library and protocol that enables feed-based information sharing, such as real-time chat, in the [IPFS](https://ipfs.io) peer-to-peer network.
 
 This repository is the core library of Orbit. This library is intended to be used in your Node.js or Browser applications.
 
 Used in the various Orbit projects:
+
 - [orbit-web](https://github.com/orbitdb/orbit-web) - Orbit browser app
 - [orbit-electron](https://github.com/orbitdb/orbit-electron) - Orbit desktop app
 - [orbit-textui](https://github.com/orbitdb/orbit-textui) - Orbit terminal client
 
 ## Table of Contents
 
-	- [Install](#install)
-	- [Usage](#usage)
-	- [API](#api)
-	- [Development](#development)
-		- [Install Dependencies](#install-dependencies)
-		- [Run Tests](#run-tests)
-		- [Build Library and Distributables](#build-library-and-distributables)
-	- [License](#license)
+- [Install](#install)
+- [Usage](#usage)
+- [API](#api)
+- [Development](#development)
+  - [Install Dependencies](#install-dependencies)
+  - [Run Tests](#run-tests)
+  - [Build Library and Distributables](#build-library-and-distributables)
+- [License](#license)
 
 ## Install
+
 This module uses [npm](https://www.npmjs.com/) and [node](https://nodejs.org/en/).
 
 ```sh
@@ -38,36 +40,37 @@ npm install orbit_
 See [examples/browser/index.html](examples/browser/index.html) for a more detailed example.
 
 ```javascript
-/* NOTE! To run this example, you need to have an IPFS daemon running */
+"use strict";
 
-'use strict'
+const Orbit = require("orbit_");
 
-const IpfsApi = require('ipfs-api')
-const Orbit = require('orbit_')
+const ipfs = new Ipfs();
 
-const ipfs = IpfsApi()
-const orbit = new Orbit(ipfs)
+ipfs.on("ready", () => {
+  const orbit = new Orbit(ipfs);
 
-const channel = 'HelloWorld'
+  const username = "Example Bot";
+  const channel = "HelloWorld";
 
-orbit.events.on('connected', (network) => {
-  console.log(`-!- Connected to ${network.name}`)
-  orbit.join(channel)
-})
+  orbit.events.on("connected", () => {
+    console.log(`-!- Orbit connected`);
+    orbit.join(channel);
+  });
 
-orbit.events.on('joined', (channel) => {
-  orbit.send(channel, "/me is now caching this channel")
-  console.log(`-!- Joined #${channel}`)
-})
+  orbit.events.on("joined", channelName => {
+    orbit.send(channelName, "/me is now caching this channel");
+    console.log(`-!- Joined #${channelName}`);
+  });
 
-// Listen for new messages
-orbit.events.on('message', (channel, post) => {
-  console.log(`[${post.meta.ts}] < ${post.meta.from.name}> ${post.content}`)
-})
+  // Listen for new messages
+  orbit.events.on("entry", (entry, channelName) => {
+    const post = entry.payload.value;
+    console.log(`[${post.meta.ts}] &lt;${post.meta.from.name}&gt; ${post.content}`);
+  });
 
-// Connect to Orbit network
-orbit.connect('Example Bot')
-  .catch((e) => logger.error(e))
+  // Connect to Orbit network
+  orbit.connect(username).catch(e => console.error(e));
+});
 ```
 
 ## API
@@ -87,33 +90,37 @@ See [API documentation](https://github.com/orbitdb/orbit-core/blob/master/API.md
   - [join(channel)](https://github.com/orbitdb/orbit-core/blob/master/API.md#joinchannel)
   - [leave(channel)](https://github.com/orbitdb/orbit-core/blob/master/API.md#leavechannel)
   - [send(channel, message)](https://github.com/orbitdb/orbit-core/blob/master/API.md#sendchannel-message)
-  - [get(channel, [lessThanHash], [greaterThanHash], [amount])](https://github.com/orbitdb/orbit-core/blob/master/API.md#getchannel-lessthanhash-greaterthanhash-amount)
-  - [getPost(hash, [withUserProfile = true])](https://github.com/orbitdb/orbit-core/blob/master/API.md#getposthash-withuserprofile--true)
-  - [getUser(hash)](https://github.com/orbitdb/orbit-core/blob/master/API.md#getuserhash)
   - [addFile(channel, source)](https://github.com/orbitdb/orbit-core/blob/master/API.md#addfilechannel-source)
   - [getFile(hash)](https://github.com/orbitdb/orbit-core/blob/master/API.md#getfilehash)
   - [getDirectory(hash)](https://github.com/orbitdb/orbit-core/blob/master/API.md#getdirectoryhash)
 
 ## Development
+
 ### Install Dependencies
 
-```
-git clone https://github.com/haadcode/orbit-core.git
+```sh
+git clone https://github.com/orbitdb/orbit-core.git
 cd orbit-core/
 npm install
 ```
 
-### Run Tests
+### Run example development environment
+
+```sh
+npm run dev
 ```
+
+### Run Tests
+
+```sh
 npm test
 ```
 
 ### Build Library and Distributables
-```
+
+```sh
 npm run build
 ```
-
-Library (ES5 for older browsers and Node.js) will be located in `lib/`.
 
 Distributable (ES5 minified for browsers) will be located in `dist/`.
 

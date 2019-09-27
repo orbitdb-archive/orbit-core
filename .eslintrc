@@ -1,0 +1,18 @@
+{
+  "env": {
+    "browser": true,
+    "node": true,
+    "mocha": true
+  },
+  "settings": {
+    "polyfills": ["promises"]
+  },
+  "extends": ["standard", "plugin:compat/recommended"],
+  "globals": {
+    "ipcRenderer": true
+  },
+  "rules": {
+    "no-var": "warn",
+    "prefer-const": "error"
+  }
+}

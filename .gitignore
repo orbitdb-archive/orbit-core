@@ -2,6 +2,8 @@ node_modules/
 *sublime*
 dist/*.map
 orbit/
-
-# test data
+orbitdb/
 orbit-db/
+orbit-tests/
+test/keys/
+package-lock.json
