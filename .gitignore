@@ -6,3 +6,4 @@ orbitdb/
 orbit-db/
 orbit-tests/
 test/keys/
+package-lock.json
