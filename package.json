@@ -1,6 +1,6 @@
 {
   "name": "orbit_",
-  "version": "0.2.0",
+  "version": "0.2.0-rc1",
   "description": "Orbit communication protocol and library",
   "main": "src/Orbit.js",
   "browserslist": [
@@ -11,7 +11,7 @@
   ],
   "dependencies": {
     "logplease": "~1.2.15",
-    "orbit-db": "github:orbitdb/orbit-db#master"
+    "orbit-db": "0.22.0-rc5"
   },
   "devDependencies": {
     "@babel/core": "^7.6.2",
