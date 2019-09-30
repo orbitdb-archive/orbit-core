@@ -40,37 +40,37 @@ npm install orbit_
 See [examples/browser/index.html](examples/browser/index.html) for a more detailed example.
 
 ```javascript
-"use strict";
+'use strict'
 
-const Orbit = require("orbit_");
+const Orbit = require('orbit_')
 
-const ipfs = new Ipfs();
+const ipfs = new Ipfs()
 
-ipfs.on("ready", () => {
-  const orbit = new Orbit(ipfs);
+ipfs.on('ready', () => {
+  const orbit = new Orbit(ipfs)
 
-  const username = "Example Bot";
-  const channel = "HelloWorld";
+  const username = 'Example Bot'
+  const channel = 'HelloWorld'
 
-  orbit.events.on("connected", () => {
-    console.log(`-!- Orbit connected`);
-    orbit.join(channel);
-  });
+  orbit.events.on('connected', () => {
+    console.log(`-!- Orbit connected`)
+    orbit.join(channel)
+  })
 
-  orbit.events.on("joined", channelName => {
-    orbit.send(channelName, "/me is now caching this channel");
-    console.log(`-!- Joined #${channelName}`);
-  });
+  orbit.events.on('joined', channelName => {
+    orbit.send(channelName, '/me is now caching this channel')
+    console.log(`-!- Joined #${channelName}`)
+  })
 
   // Listen for new messages
-  orbit.events.on("entry", (entry, channelName) => {
-    const post = entry.payload.value;
-    console.log(`[${post.meta.ts}] &lt;${post.meta.from.name}&gt; ${post.content}`);
-  });
+  orbit.events.on('entry', (entry, channelName) => {
+    const post = entry.payload.value
+    console.log(`[${post.meta.ts}] &lt;${post.meta.from.name}&gt; ${post.content}`)
+  })
 
   // Connect to Orbit network
-  orbit.connect(username).catch(e => console.error(e));
-});
+  orbit.connect(username).catch(e => console.error(e))
+})
 ```
 
 ## API
@@ -136,4 +136,4 @@ For specific guidelines for contributing to this repository, check out the [Cont
 
 ## License
 
-[MIT](LICENSE) © 2016-2018 Protocol Labs Inc., Haja Networks Oy
+[MIT](LICENSE) © 2016-2019 Protocol Labs Inc., Haja Networks Oy
