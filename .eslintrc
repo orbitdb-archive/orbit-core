@@ -1,29 +1,18 @@
 {
-  "extends": ["@orbitdb/eslint-config-orbitdb", "plugin:compat/recommended"],
   "env": {
     "browser": true,
     "node": true,
     "mocha": true
   },
+  "settings": {
+    "polyfills": ["promises"]
+  },
+  "extends": ["standard", "plugin:compat/recommended"],
   "globals": {
     "ipcRenderer": true
   },
   "rules": {
-    "max-len": [
-      "error",
-      {
-        "code": 100,
-        "tabWidth": 2,
-        "ignoreComments": true,
-        "ignoreStrings": true,
-        "ignoreTemplateLiterals": true,
-        "ignoreRegExpLiterals": true
-      }
-    ],
     "no-var": "warn",
     "prefer-const": "error"
-  },
-  "settings": {
-    "polyfills": ["promises"]
   }
 }

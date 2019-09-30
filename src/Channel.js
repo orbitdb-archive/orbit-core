@@ -77,82 +77,8 @@ class Channel extends EventEmitter {
   }
 
   async loadMore (amount = 10) {
-    // TODO: This is a bit hacky, but at the time of writing is the only way
-    // to load more entries
-
-    const log = this.feed._oplog
-    const Log = log.constructor
-
-    try {
-      const newLog = await Log.fromEntryHash(
-        this.feed._ipfs,
-        this.feed.identity,
-        log.tails[0].next[0],
-        {
-          logId: log.id,
-          access: this.feed.access,
-          length: log.values.length + amount,
-          exclude: log.values,
-          onProgressCallback: this.feed._onLoadProgress.bind(this.feed)
-        }
-      )
-      // await log.join(newLog)
-      await monkeyPatchedJoin(log, newLog)
-
-      await this.feed._updateIndex()
-
-      this.feed.events.emit('ready', this.feed.address.toString(), log.heads)
-    } catch (e) {
-      if (!log.tails[0].next[0]) {
-        console.warn('No more history to load!')
-      } else {
-        console.error(e.stack)
-      }
-    }
+    throw new Error('loadMore is not implemented')
   }
-}
-
-async function monkeyPatchedJoin (log, newLog) {
-  const Log = log.constructor
-
-  if (!Log.monkeyPatched) {
-    Log._origDifference = Log.difference
-    Log.difference = differenceMonkeyPatch
-    Log.monkeyPatched = true
-  }
-
-  await log.join(newLog)
-
-  if (Log.monkeyPatched) {
-    Log.difference = Log._origDifference
-    delete Log._origDifference
-    delete Log.monkeyPatched
-  }
-}
-
-function differenceMonkeyPatch (a, b) {
-  // let stack = Object.keys(a._headsIndex)
-  const stack = Object.keys(a._entryIndex) // This is the only change
-  const traversed = {}
-  const res = {}
-
-  const pushToStack = hash => {
-    if (!traversed[hash] && !b.get(hash)) {
-      stack.push(hash)
-      traversed[hash] = true
-    }
-  }
-
-  while (stack.length > 0) {
-    const hash = stack.shift()
-    const entry = a.get(hash)
-    if (entry && !b.get(hash) && entry.id === b.id) {
-      res[entry.hash] = entry
-      traversed[entry.hash] = true
-      entry.next.forEach(pushToStack)
-    }
-  }
-  return res
 }
 
 module.exports = Channel

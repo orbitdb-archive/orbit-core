@@ -1,11 +1,10 @@
 'use strict'
 
-const path = require('path')
 const EventEmitter = require('events').EventEmitter
+
 const OrbitDB = require('orbit-db')
 const Logger = require('logplease')
 
-const IdentityProviders = require('./IdentityProviders')
 const Channel = require('./Channel')
 
 const logger = Logger.create('Orbit', { color: Logger.Colors.Green })
@@ -14,38 +13,32 @@ Logger.setLogLevel(
   process.env.NODE_ENV === 'development' ? Logger.LogLevels.DEBUG : Logger.LogLevels.ERROR
 )
 
-const getAppPath = () =>
-  process.type && process.env.ENV !== 'dev' ? process.resourcesPath + '/app/' : process.cwd()
-
-const defaultOptions = {
-  dbOptions: {
-    directory: path.join(getAppPath(), '/orbit/orbitdb') // path to orbit-db file
-  },
-  channelOptions: {}
-}
-
 class Orbit {
-  constructor (ipfs, options = {}) {
+  constructor (ipfs, options) {
     this.events = new EventEmitter()
     this._ipfs = ipfs
     this._orbitdb = null
-    this._user = null
+    this._userProfile = null
     this._channels = {}
     this._peers = []
     this._pollPeersTimer = null
-    this._options = Object.assign({}, defaultOptions, options)
+    this._options = options || {}
     this._joiningQueue = {}
     this._connecting = false
   }
 
   /* Public properties */
 
-  get user () {
-    return this._user
+  get userProfile () {
+    return this._userProfile
   }
 
   get channels () {
     return this._channels
+  }
+
+  get identity () {
+    return this._orbitdb ? this._orbitdb.identity : null
   }
 
   get peers () {
@@ -58,35 +51,37 @@ class Orbit {
 
   /* Public methods */
 
-  async connect (credentials = {}) {
+  static async create (ipfs, options) {
+    const node = new Orbit(ipfs, options)
+    await node.connect()
+    return node
+  }
+
+  async connect (username) {
     if (this._orbitdb) throw new Error('Already connected')
     if (this._connecting) throw new Error('Already connecting')
     else this._connecting = true
 
-    logger.info(`Connecting to Orbit as ${JSON.stringify(credentials)}`)
-
-    if (typeof credentials === 'string') {
-      credentials = { provider: 'orbitdb', username: credentials }
+    if (username) {
+      if (typeof username !== 'string') throw new Error("'username' must be a string")
+      this._options.id = username
     }
 
-    this._user = await IdentityProviders.authorizeUser(this._ipfs, credentials)
+    this._userProfile = {
+      name: this._options.id,
+      location: 'Earth',
+      image: null
+    }
 
-    this._orbitdb = await OrbitDB.createInstance(
-      this._ipfs,
-      Object.assign(
-        {
-          directory: this._options.directory,
-          identity: this.user.identity
-        },
-        this._options.dbOptions
-      )
-    )
+    logger.info(`Connecting to Orbit as "${this.userProfile.name}""`)
+
+    this._orbitdb = await OrbitDB.createInstance(this._ipfs, this._options)
 
     this._startPollingForPeers()
 
-    logger.info(`Connected to Orbit as "${this.user.profile.name}"`)
+    logger.info(`Connected to Orbit as "${this.userProfile.name}"`)
 
-    this.events.emit('connected', this.user)
+    this.events.emit('connected', this.userProfile)
   }
 
   async disconnect () {
@@ -97,7 +92,7 @@ class Orbit {
     await this._orbitdb.disconnect()
     this._connecting = false
     this._orbitdb = null
-    this._user = null
+    this._userProfile = null
     this._channels = {}
 
     if (this._pollPeersTimer) clearInterval(this._pollPeersTimer)
@@ -105,7 +100,7 @@ class Orbit {
     this.events.emit('disconnected')
   }
 
-  join (channelName) {
+  join (channelName, options) {
     if (!channelName || channelName === '') {
       return Promise.reject(new Error('Channel not specified'))
     } else if (this._channels[channelName]) {
@@ -114,16 +109,16 @@ class Orbit {
       this._joiningQueue[channelName] = new Promise(resolve => {
         logger.debug(`Join #${channelName}`)
 
-        const options = Object.assign(
+        const channelOptions = Object.assign(
           {
             accessController: {
               write: ['*'] // Allow anyone to write to the channel
             }
           },
-          this._options.channelOptions
+          options || {}
         )
 
-        this._orbitdb.log(channelName, options).then(feed => {
+        this._orbitdb.log(channelName, channelOptions).then(feed => {
           this._channels[channelName] = new Channel(this, channelName, feed)
           logger.debug(`Joined #${channelName}, ${feed.address.toString()}`)
           this.events.emit('joined', channelName, this._channels[channelName])
@@ -151,13 +146,13 @@ class Orbit {
   async send (channelName, message, replyToHash) {
     if (!channelName || channelName === '') throw new Error('Channel must be specified')
     if (!message || message === '') throw new Error("Can't send an empty message")
-    if (!this.user) throw new Error("Something went wrong: 'user' is undefined")
+    if (!this.userProfile) throw new Error("Something went wrong: 'userProfile' is undefined")
 
     logger.debug(`Send message to #${channelName}: ${message}`)
 
     const data = {
       content: message.substring(0, 2048),
-      meta: { from: this.user.profile, type: 'text', ts: new Date().getTime() }
+      meta: { from: this.userProfile, type: 'text', ts: new Date().getTime() }
     }
 
     return this._postMessage(channelName, data)
@@ -225,7 +220,7 @@ class Orbit {
       content: upload.hash,
       meta: Object.assign(
         {
-          from: this.user.profile,
+          from: this.userProfile,
           type: upload.isDirectory ? 'directory' : 'file',
           ts: new Date().getTime()
         },
